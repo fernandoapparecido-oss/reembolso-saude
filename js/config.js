@@ -14,7 +14,7 @@ export const CONFIG = {
   CLIENT_ID: '709069445111-mhoiclvh1t2s1f2krlpp2nvl35s62fpm.apps.googleusercontent.com',
 
   // API key (para o Google Picker). Restrinja por HTTP referrer no Console.
-  API_KEY: 'PREENCHA_SUA_API_KEY',
+  API_KEY: 'AIzaSyBUV7Wn55sRA0vSY5GCBqb-sIffhuhXpcM',
 
   // Número do projeto no Google Cloud (Project number, só dígitos). Usado pelo Picker.
   APP_ID: 'PREENCHA_O_PROJECT_NUMBER',
