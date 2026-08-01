@@ -1,34 +1,43 @@
 /**
  * INBOX POR E-MAIL — anexos que chegam por e-mail aparecem sozinhos no app.
  *
- * O que faz: varre o Gmail da conta, salva os anexos PDF numa pasta do Drive e
- * registra cada um na aba "Inbox" da planilha (status "pendente"). Como o app lê
- * essa aba, os arquivos surgem no Inbox sem você usar o Picker.
+ * O que faz: varre o Gmail da conta, salva os anexos (PDF, JPG e PNG) numa pasta
+ * do Drive e registra cada um na aba "Inbox" da planilha (status "pendente").
+ * Como o app lê essa aba, os arquivos surgem no Inbox sem você usar o Picker.
  *
- * IMPORTANTE — em qual conta rodar:
- *  Rode este script na conta que RECEBE os e-mails (ex.: reembolsofamilia@gmail.com),
- *  que deve ser dona (ou ter acesso de edição) da planilha de controle. Assim o
- *  GmailApp lê a caixa certa e o SpreadsheetApp.getActive() aponta a planilha.
+ * ONDE RODAR: na conta que RECEBE os e-mails e é dona da planilha
+ * (ex.: reembolsofamilia@gmail.com). Assim o GmailApp lê a caixa certa e o
+ * SpreadsheetApp.getActive() aponta a planilha.
  *
- * Como instalar:
- *  1. Abra a planilha de controle NA CONTA reembolsofamilia@gmail.com.
+ * INSTALAÇÃO:
+ *  1. Abra a planilha de controle NA CONTA do app (reembolsofamilia@gmail.com).
  *  2. Extensões → Apps Script. Cole este arquivo (pode conviver com aviso-prazo.gs).
- *  3. Rode "importarAnexos" uma vez e autorize (Gmail + Drive + Sheets).
- *  4. Gatilho de tempo: relógio (⏰) → Add Trigger → importarAnexos →
+ *  3. Preencha COMPARTILHAR_COM abaixo com os e-mails das contas PESSOAIS que usam
+ *     o app (a sua e a da outra pessoa) — assim o preview funciona para elas.
+ *  4. Rode "importarAnexos" uma vez e autorize (Gmail + Drive + Sheets).
+ *  5. Gatilho de tempo: relógio (⏰) → Add Trigger → importarAnexos →
  *     "Time-driven" → "Minutes timer" → a cada 5 ou 10 min. Pronto.
  *
- * Previews para outras pessoas (multiusuário):
- *  Os anexos ficam na pasta PASTA_DRIVE, criada nesta conta. Para quem usa o app
- *  com OUTRA conta ver o preview, COMPARTILHE essa pasta com os e-mails delas
- *  (Drive → pasta "Reembolso Inbox" → Compartilhar). Quem usa esta mesma conta
- *  não precisa fazer nada.
+ * Se mudar COMPARTILHAR_COM depois, rode "compartilharPasta" uma vez.
  */
+
+// ---- Configuração --------------------------------------------------------
+
+// Contas PESSOAIS que usam o app e precisam VER os anexos no preview.
+// A pasta é compartilhada com estes e-mails; os arquivos herdam o acesso.
+const COMPARTILHAR_COM = [
+  // 'sua.conta.pessoal@gmail.com',
+  // 'outra.pessoa@gmail.com',
+];
 
 const PASTA_DRIVE = 'Reembolso Inbox';   // pasta onde os anexos são salvos
 const LABEL_OK = 'reembolso-processado'; // rótulo p/ não reprocessar o mesmo e-mail
 const BUSCA = 'has:attachment -label:reembolso-processado newer_than:60d';
 const ABA_INBOX = 'Inbox';
 const MAX_THREADS = 50;                  // por execução (volume baixo)
+const MIN_IMAGEM_BYTES = 10 * 1024;      // ignora imagens minúsculas (ícones/logos)
+
+// ---- Rotina principal ----------------------------------------------------
 
 function importarAnexos() {
   const threads = GmailApp.search(BUSCA, 0, MAX_THREADS);
@@ -44,8 +53,9 @@ function importarAnexos() {
 
   threads.forEach((th) => {
     th.getMessages().forEach((msg) => {
-      msg.getAttachments().forEach((att) => {
-        if (!ehPdf_(att)) return;
+      // includeInlineImages:false evita logos de assinatura virarem "documentos".
+      msg.getAttachments({ includeInlineImages: false }).forEach((att) => {
+        if (!aceita_(att)) return;
         const arq = pasta.createFile(att.copyBlob()).setName(att.getName());
         const id = arq.getId();
         if (!existentes.has(id)) {
@@ -54,13 +64,33 @@ function importarAnexos() {
         }
       });
     });
-    th.addLabel(label); // marca o e-mail como processado (mesmo sem PDF), evita revarrer
+    th.addLabel(label); // marca o e-mail como processado (mesmo sem anexo válido)
   });
 }
 
-function ehPdf_(att) {
-  return att.getContentType() === 'application/pdf' || /\.pdf$/i.test(att.getName() || '');
+// Aceita PDF, JPG e PNG. Imagens muito pequenas são descartadas (assinaturas).
+function aceita_(att) {
+  const ct = att.getContentType() || '';
+  const nome = att.getName() || '';
+  if (ct === 'application/pdf' || /\.pdf$/i.test(nome)) return true;
+  const ehImg = ct === 'image/jpeg' || ct === 'image/png' || /\.(jpe?g|png)$/i.test(nome);
+  if (!ehImg) return false;
+  return att.getSize() >= MIN_IMAGEM_BYTES;
 }
+
+// ---- Compartilhamento da pasta (para o preview funcionar em outras contas) --
+
+function compartilharPasta() {
+  garantirCompartilhamento_(pegarOuCriarPasta_(PASTA_DRIVE));
+}
+
+function garantirCompartilhamento_(pasta) {
+  COMPARTILHAR_COM.filter(Boolean).forEach((email) => {
+    try { pasta.addViewer(email); } catch (e) { /* já compartilhado ou e-mail inválido */ }
+  });
+}
+
+// ---- Helpers -------------------------------------------------------------
 
 function idsExistentes_(sh) {
   const set = new Set();
@@ -72,5 +102,8 @@ function idsExistentes_(sh) {
 
 function pegarOuCriarPasta_(nome) {
   const it = DriveApp.getFoldersByName(nome);
-  return it.hasNext() ? it.next() : DriveApp.createFolder(nome);
+  if (it.hasNext()) return it.next();
+  const pasta = DriveApp.createFolder(nome);
+  garantirCompartilhamento_(pasta); // compartilha na criação
+  return pasta;
 }

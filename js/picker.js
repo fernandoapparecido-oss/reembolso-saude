@@ -39,12 +39,12 @@ function abrirPicker(view, multi) {
   });
 }
 
-// Aponta PDFs (o que caiu no INBOX por fora do app).
-export async function apontarPdfs() {
+// Aponta arquivos (PDF ou imagem) que caíram no Drive por fora do app.
+export async function apontarArquivos() {
   await ensureToken();
   await carregarPicker();
   const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
-    .setMimeTypes('application/pdf')
+    .setMimeTypes('application/pdf,image/jpeg,image/png')
     .setIncludeFolders(true)
     .setSelectFolderEnabled(false);
   return abrirPicker(view, true);

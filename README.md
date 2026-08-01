@@ -164,10 +164,11 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
 ## Entrada por e-mail (opcional, recomendado)
 Para não usar o Picker a cada arquivo: mande os documentos por e-mail para a conta do app
 (ex.: `reembolsofamilia@gmail.com`) e deixe o script **`apps-script/inbox-email.gs`** salvar
-os anexos PDF numa pasta do Drive e registrá-los na aba `Inbox` — eles **aparecem sozinhos**
-no app. O Picker continua para o que chega por WhatsApp/scan. Instalação e detalhes de
-compartilhamento (para o preview funcionar em outras contas) estão no cabeçalho do próprio
-script.
+os anexos (**PDF, JPG e PNG**) numa pasta do Drive e registrá-los na aba `Inbox` — eles
+**aparecem sozinhos** no app. O script **compartilha a pasta** com as contas pessoais
+(configuradas em `COMPARTILHAR_COM`) para o preview funcionar, ignora imagens minúsculas
+(logos de assinatura) e não reprocessa e-mails. O Picker continua para o que chega por
+WhatsApp/scan (também aceitando PDF/JPG/PNG).
 
 > Funciona sem `drive.file` em cada anexo porque o app não chama a API do Drive no arquivo:
 > ele lê a aba `Inbox` e mostra o preview por `iframe`, que usa a sessão do navegador. Basta a

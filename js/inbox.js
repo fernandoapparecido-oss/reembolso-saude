@@ -1,7 +1,7 @@
 // Tela INBOX: arquivos apontados ao app que ainda NÃO foram categorizados.
 import { el, clear, toast } from './ui.js';
 import { lerInbox, adotarArquivos } from './sheets.js';
-import { apontarPdfs } from './picker.js';
+import { apontarArquivos } from './picker.js';
 import { abrirTriagem } from './triage.js';
 
 let cachePendentes = [];
@@ -56,7 +56,7 @@ export async function renderInbox(onBadge) {
 
 async function onApontar(onBadge) {
   try {
-    const docs = await apontarPdfs();
+    const docs = await apontarArquivos();
     if (!docs.length) return;
     const n = await adotarArquivos(docs);
     toast(n ? `${n} arquivo(s) adicionado(s) à fila.` : 'Nenhum novo (já estavam na fila).', 'ok');
