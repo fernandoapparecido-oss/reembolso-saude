@@ -23,6 +23,20 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
+      # Cache-busting: carimba o hash curto do commit em index.html, nos imports
+      # dos módulos e em version.js. Some o cache velho a cada deploy, sem build
+      # no dia a dia e sem sujar o código-fonte (o carimbo é só no artefato).
+      - name: Cache-busting (stamp version)
+        run: |
+          VER="${GITHUB_SHA::7}"
+          sed -i "s#\"js/app.js\"#\"js/app.js?v=$VER\"#g; s#\"css/app.css\"#\"css/app.css?v=$VER\"#g" index.html
+          for f in js/*.js; do
+            sed -i -E "s@(\./[A-Za-z0-9_-]+\.js)(['\"])@\1?v=$VER\2@g" "$f"
+          done
+          sed -i "s#__BUILD__#$VER#g" js/version.js
+          echo "Carimbado: $VER"
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .            # raiz: index.html, css/, js/

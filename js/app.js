@@ -6,6 +6,7 @@ import { conectarPlanilha } from './picker.js';
 import { renderInbox, pendentesCount } from './inbox.js';
 import { renderLotes } from './lotes.js';
 import { mostrarView, toast, el } from './ui.js';
+import { buildLabel } from './version.js';
 
 const $ = (id) => document.getElementById(id);
 let viewAtual = 'inbox';
@@ -114,6 +115,8 @@ function ligarEventos() {
 }
 
 async function main() {
+  const tag = $('build-tag');
+  if (tag) tag.textContent = `versão ${buildLabel()}`;
   await esperarSDKs();
   initAuth();
   ligarEventos();
