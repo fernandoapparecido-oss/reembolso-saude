@@ -1,5 +1,5 @@
 // Orquestrador: carrega SDKs, cuida do login, conecta a planilha e roteia telas.
-import { initAuth, isSignedIn, onAuthChange, signIn, signOut, signInSilent, jaLogouAntes } from './auth.js';
+import { initAuth, isSignedIn, onAuthChange, signIn, signOut, signInSilent, jaLogouAntes, getEmail } from './auth.js';
 import { store } from './store.js';
 import { ensureSheets } from './sheets.js';
 import { conectarPlanilha } from './picker.js';
@@ -106,7 +106,7 @@ function atualizarTopbar() {
 
   if (isSignedIn()) {
     btn.textContent = 'Sair';
-    hint.textContent = store.getSheetId() ? 'conectado' : '';
+    hint.textContent = getEmail() || (store.getSheetId() ? 'conectado' : '');
   } else {
     btn.textContent = 'Entrar';
     hint.textContent = '';

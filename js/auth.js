@@ -11,8 +11,18 @@ let pendingResolve = null;
 let pendingFail = null;
 const listeners = [];
 const K_RETORNANTE = 'rs_ja_logou'; // marca que este dispositivo já concedeu acesso
+const K_EMAIL = 'rs_email';         // conta usada (para dica de login / login_hint)
 
 export function jaLogouAntes() { return localStorage.getItem(K_RETORNANTE) === '1'; }
+export function getEmail() { return localStorage.getItem(K_EMAIL) || ''; }
+
+// Busca o e-mail/nome da conta (escopo email/profile) para usar como dica depois.
+async function guardarPerfil(token) {
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers: { Authorization: `Bearer ${token}` } });
+    if (r.ok) { const d = await r.json(); if (d.email) localStorage.setItem(K_EMAIL, d.email); }
+  } catch (_) { /* opcional */ }
+}
 
 export function onAuthChange(fn) { listeners.push(fn); }
 function emit() { const s = isSignedIn(); listeners.forEach((f) => f(s)); }
@@ -37,6 +47,7 @@ export function initAuth() {
       // expires_in vem em segundos; renovamos 60s antes por segurança.
       tokenExpiry = Date.now() + (Number(resp.expires_in || 3600) - 60) * 1000;
       localStorage.setItem(K_RETORNANTE, '1'); // já concedeu acesso neste dispositivo
+      guardarPerfil(accessToken); // guarda o e-mail para dica no próximo login
       emit();
       const r = pendingResolve; pendingResolve = null; pendingFail = null;
       if (r) r();
@@ -56,14 +67,15 @@ export function signInSilent() {
     initAuth();
     pendingResolve = () => resolve(true);
     pendingFail = () => resolve(false);
-    try { tokenClient.requestAccessToken({ prompt: '' }); } catch (_) { resolve(false); }
+    // hint (login_hint) reusa a conta conhecida sem mostrar o seletor.
+    try { tokenClient.requestAccessToken({ prompt: '', hint: getEmail() || undefined }); } catch (_) { resolve(false); }
   });
 }
 
 export function signIn() {
   initAuth();
-  // Só pede consentimento na primeira vez da sessão; depois, silencioso.
-  tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+  // Reusa a conta conhecida (hint); GIS só mostra consentimento se for necessário.
+  tokenClient.requestAccessToken({ prompt: '', hint: getEmail() || undefined });
 }
 
 // Garante um token válido antes de uma chamada de API.

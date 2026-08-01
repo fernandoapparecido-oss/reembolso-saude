@@ -54,10 +54,11 @@ export const CONFIG = {
   ALERTA_PRAZO_DIAS: 7,
 
   // ---------------------------------------------------------------------------
-  //  Escopo OAuth — SÓ drive.file (NÃO-sensível → sem aviso "app não verificado").
-  //  A API do Sheets funciona com drive.file na planilha apontada pelo Picker.
-  //  NÃO adicione "spreadsheets" nem "drive" completo: viram escopo sensível e
-  //  voltam o aviso do Google.
+  //  Escopos OAuth — todos NÃO-sensíveis (sem aviso "app não verificado").
+  //  openid/email/profile: só para saber a conta logada e reusá-la em silêncio
+  //  no retorno (login_hint), evitando o seletor de conta toda vez.
+  //  drive.file: a planilha apontada pelo Picker (a API do Sheets aceita este escopo).
+  //  NÃO adicione "spreadsheets" nem "drive" completo (viram sensível → aviso volta).
   // ---------------------------------------------------------------------------
-  SCOPES: 'https://www.googleapis.com/auth/drive.file',
+  SCOPES: 'openid email profile https://www.googleapis.com/auth/drive.file',
 };
