@@ -10,6 +10,8 @@ import {
 } from './model.js';
 
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
+const COL_FIM = colLetter(LOTES_HEADER.length - 1); // última coluna dos Lotes (ex.: "N")
+const rangeLote = (linha) => `${SHEET_LOTES}!A${linha}:${COL_FIM}${linha}`;
 
 async function fetchWithBackoff(url, opts, tentativas = 4) {
   let espera = 500;
@@ -157,7 +159,7 @@ export async function marcarInboxPendente(linha) {
 // ---- Lotes ----------------------------------------------------------------
 
 export async function lerLotes() {
-  const rows = await getValues(`${SHEET_LOTES}!A2:L`);
+  const rows = await getValues(`${SHEET_LOTES}!A2:${COL_FIM}`);
   return rows.map((r, i) => ({ linha: i + 2, cols: r }))
     .filter((x) => (x.cols[COL.prestador] || '').trim());
 }
@@ -198,18 +200,23 @@ export async function confirmarTriagem({ prestador, mes, tiposIds, especialidade
   if (!row[COL.data_limite] && dataLimite) row[COL.data_limite] = dataLimite;
 
   if (!alvo) await appendRow(SHEET_LOTES, row);
-  else await updateRange(`${SHEET_LOTES}!A${alvo.linha}:L${alvo.linha}`, [row]);
+  else await updateRange(rangeLote(alvo.linha), [row]);
 }
 
 // Atualiza campos avulsos de um lote (status, postagem, prazo, valor).
 export async function atualizarLote(linha, patch) {
-  const rows = await getValues(`${SHEET_LOTES}!A${linha}:L${linha}`);
+  const rows = await getValues(rangeLote(linha));
   const row = (rows[0] || []).slice();
   while (row.length < LOTES_HEADER.length) row.push('');
   for (const [k, v] of Object.entries(patch)) {
     if (COL[k] !== undefined) row[COL[k]] = v;
   }
-  await updateRange(`${SHEET_LOTES}!A${linha}:L${linha}`, [row]);
+  await updateRange(rangeLote(linha), [row]);
+}
+
+// Pede a geração do PDF único do lote (o Apps Script junta e devolve o link).
+export async function pedirPdfLote(linha) {
+  await atualizarLote(linha, { pedido_pdf: new Date().toISOString(), pdf_lote: '' });
 }
 
 // ---- Reclassificação ------------------------------------------------------
@@ -255,7 +262,7 @@ export async function removerArquivoDeTodosLotes(fileId) {
       || (row[COL.data_postagem] || '') || (row[COL.rastreio] || '') || (row[COL.valor] || '');
 
     if (!aindaTemLink && !temEnvio) await deletarLinhaLote(l.linha);
-    else await updateRange(`${SHEET_LOTES}!A${l.linha}:L${l.linha}`, [row]);
+    else await updateRange(rangeLote(l.linha), [row]);
     return; // achou o lote do arquivo; encerra
   }
 }

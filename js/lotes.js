@@ -5,8 +5,10 @@ import { el, clear, toast, fmtBRL } from './ui.js';
 import {
   COL, STATUS, TIPOS_IDS, parseSlot, idFromLink, fileViewLink, diasAte, hojeISO,
 } from './model.js';
-import { lerLotes, atualizarLote } from './sheets.js';
+import { lerLotes, atualizarLote, pedirPdfLote } from './sheets.js';
 import { getPerfis } from './catalog.js';
+
+let timerPoll = null;
 
 const labelDe = (id) => (CONFIG.TIPOS.find((t) => t.id === id) || { label: id }).label;
 const enviadoOuPago = (st) => st === STATUS.ENVIADO || st === STATUS.REEMBOLSADO;
@@ -48,6 +50,10 @@ export async function renderLotes() {
       return;
     }
     for (const a of filtrados) lista.appendChild(cardLote(a));
+
+    // Se houver PDF sendo gerado, atualiza sozinho até ficar pronto.
+    clearTimeout(timerPoll);
+    if (analises.some((a) => a.pedido_pdf)) timerPoll = setTimeout(renderLotes, 20000);
   } catch (e) {
     clear(lista);
     if ((e.message || '').includes('SEM_PLANILHA')) lista.appendChild(el('div', { class: 'vazio' }, [el('p', { text: '🔌 Conecte a planilha no topo primeiro.' })]));
@@ -103,6 +109,7 @@ function analisar(b, perfil) {
     prestador: cols[COL.prestador] || '', mes: cols[COL.mes] || '',
     data_limite: cols[COL.data_limite] || '',
     data_postagem: cols[COL.data_postagem] || '', rastreio: cols[COL.rastreio] || '', valor: cols[COL.valor] || '',
+    pedido_pdf: cols[COL.pedido_pdf] || '', pdf_lote: cols[COL.pdf_lote] || '',
     statusReal, statusMostra, completo, faltando, linhaShared, matriz,
   };
 }
@@ -144,8 +151,38 @@ function cardLote(a) {
     d != null && !enviado ? el('span', { class: 'prazo-dias', text: d < 0 ? `  (vencido há ${-d}d)` : `  (faltam ${d}d)` }) : null,
   ]));
 
+  card.appendChild(impressao(a));
   card.appendChild(acoes(a));
   return card;
+}
+
+// Faixa de impressão: Gerar PDF → Gerando… → Imprimir (PDF único do lote).
+function impressao(a) {
+  const box = el('div', { class: 'acoes' });
+  const temDoc = a.linhaShared.some((s) => s.ok) || a.matriz.some((r) => r.itens.some((i) => i.ok));
+
+  const pdfOk = /^https?:/i.test(a.pdf_lote);
+  if (a.pedido_pdf) {
+    box.appendChild(el('span', { class: 'muted', text: '🖨 Gerando PDF do lote… (~1–2 min)' }));
+    box.appendChild(btn('Atualizar', 'ghost', () => renderLotes()));
+  } else if (pdfOk) {
+    box.appendChild(btn('🖨 Imprimir (PDF do lote)', 'primary', () => window.open(a.pdf_lote, '_blank', 'noopener')));
+    box.appendChild(btn('Refazer PDF', 'ghost', () => pedir(a)));
+  } else if (a.pdf_lote) {
+    box.appendChild(el('span', { class: 'resumo-falta', text: `Falha ao gerar: ${a.pdf_lote}` }));
+    box.appendChild(btn('Tentar de novo', 'ghost', () => pedir(a)));
+  } else if (temDoc) {
+    box.appendChild(btn('Gerar PDF para impressão', 'ghost', () => pedir(a)));
+  }
+  return box;
+}
+
+async function pedir(a) {
+  try {
+    await pedirPdfLote(a.linha);
+    toast('PDF solicitado. Fica pronto em ~1–2 min.', 'ok');
+    renderLotes();
+  } catch (e) { toast('Falha ao solicitar o PDF.', 'err'); console.warn(e.message); }
 }
 
 function slotChip(label, ok, links) {

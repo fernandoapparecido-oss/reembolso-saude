@@ -19,12 +19,15 @@ export const LOTES_HEADER = [
   'data_postagem',  // 9  (YYYY-MM-DD)
   'rastreio',       // 10
   'valor',          // 11
+  'pedido_pdf',     // 12  timestamp do pedido de PDF (app escreve; Apps Script limpa)
+  'pdf_lote',       // 13  link do PDF único juntado (Apps Script escreve)
 ];
 
 export const COL = {
   prestador: 0, mes: 1,
   NF: 2, Laudo: 3, Comprovante: 4, Relatorio: 5, Presenca: 6,
   data_limite: 7, status: 8, data_postagem: 9, rastreio: 10, valor: 11,
+  pedido_pdf: 12, pdf_lote: 13,
 };
 
 // Tipos (slots de documento) na ordem das colunas — independentes dos rótulos do config.

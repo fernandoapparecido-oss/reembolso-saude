@@ -47,14 +47,18 @@ js/lotes.js           Tela LOTES (status, prazos, registro de envio)
 js/app.js             Orquestrador (login, roteamento)
 apps-script/aviso-prazo.gs   (opcional) e-mail de prazo, sem o app aberto
 apps-script/inbox-email.gs   (opcional) anexos de e-mail entram sozinhos no Inbox
+apps-script/merge-lote.gs    (opcional) junta os docs do lote num PDF único p/ imprimir
 ```
 
 ### Modelo de dados (planilha)
 
 Aba **`Lotes`** — **uma linha por lote (prestador × mês)**:
 
-| prestador | mes_referencia | NF | Laudo | Comprovante | Relatorio | Presenca | data_limite | status | data_postagem | rastreio | valor |
-|-----------|----------------|----|-------|-------------|-----------|----------|-------------|--------|---------------|----------|-------|
+| prestador | mes_referencia | NF | Laudo | Comprovante | Relatorio | Presenca | data_limite | status | data_postagem | rastreio | valor | pedido_pdf | pdf_lote |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+
+As duas últimas colunas são da **impressão**: o app escreve `pedido_pdf` ao pedir o PDF único;
+o `merge-lote.gs` devolve o link do PDF juntado em `pdf_lote`.
 
 Cada célula de tipo guarda **o link do arquivo** que preencheu aquele slot (vários links
 separados por ` | ` se vierem de arquivos diferentes). `status` ∈ `Aguardando`,
@@ -179,6 +183,18 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
 3. **Lotes** → veja `Aguardando/Completo/Enviado/Reembolsado`, filtre por
    *Faltando docs / Prontos p/ enviar / Prazo desta semana*, e **Registrar envio**
    (data de postagem, rastreio, valor) quando postar nos Correios.
+
+### Imprimir o lote (PDF único)
+No card do lote, **Gerar PDF para impressão** → o app registra o pedido na planilha e o
+`apps-script/merge-lote.gs` (na conta dona) junta **todos os documentos do lote num PDF só**
+(ordem: NF, Comprovante, Laudo e depois Relatório+Presença por especialidade; PDFs e imagens).
+Em ~1–2 min o botão vira **🖨 Imprimir** — você abre o PDF e imprime **uma vez só**.
+Instalação do script está no cabeçalho dele.
+
+> Por que não juntar no próprio app: com `drive.file` o app não lê os bytes dos anexos (só os
+> pré-visualiza pela sua sessão). Quem lê tudo é o Apps Script na conta dona — por isso a junção
+> acontece lá. Navegador nenhum imprime direto na impressora sem diálogo; o "uma impressão" vem
+> do **PDF único**.
 
 ### Reclassificar (corrigir um erro)
 Na **Inbox**, aba **Categorizados**, toque no arquivo (ícone ✎). A tela abre já com o que
