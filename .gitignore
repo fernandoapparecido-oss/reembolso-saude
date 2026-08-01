@@ -1,0 +1,5 @@
+.DS_Store
+.vscode/
+*.log
+# Config local, caso você queira testar sem commitar suas chaves:
+js/config.local.js
