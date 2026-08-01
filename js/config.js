@@ -19,10 +19,8 @@ export const CONFIG = {
   // Número do projeto no Google Cloud (Project number, só dígitos). Usado pelo Picker.
   APP_ID: '709069445111',
 
-  // ID da planilha de controle. PREENCHA para a planilha vir por padrão, sem o
-  // Picker: todos que tiverem acesso a ela (compartilhada) já entram direto.
-  // O ID é o trecho entre /d/ e /edit na URL da planilha. Ex.: "1AbC...xyz".
-  // (Se ficar vazio, o app cai no fluxo antigo de "Conectar planilha" pelo Picker.)
+  // Com o escopo drive.file, a planilha é apontada pelo Picker uma vez por
+  // dispositivo (o app guarda o ID e não pede de novo). Deixe vazio.
   SHEET_ID: '',
 
   // ---------------------------------------------------------------------------
@@ -56,9 +54,10 @@ export const CONFIG = {
   ALERTA_PRAZO_DIAS: 7,
 
   // ---------------------------------------------------------------------------
-  //  Escopos OAuth — privilégio mínimo. NÃO troque por "drive" completo.
-  //  drive.file  -> só arquivos criados/apontados ao app (via Picker).
-  //  spreadsheets-> ler/gravar a planilha de controle.
+  //  Escopo OAuth — SÓ drive.file (NÃO-sensível → sem aviso "app não verificado").
+  //  A API do Sheets funciona com drive.file na planilha apontada pelo Picker.
+  //  NÃO adicione "spreadsheets" nem "drive" completo: viram escopo sensível e
+  //  voltam o aviso do Google.
   // ---------------------------------------------------------------------------
-  SCOPES: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/spreadsheets',
+  SCOPES: 'https://www.googleapis.com/auth/drive.file',
 };
