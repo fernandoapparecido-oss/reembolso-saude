@@ -40,7 +40,7 @@ export async function abrirTriagem(item, onDone, opts = {}) {
     prestador: pre ? pre.prestador : '',
     mes: pre ? pre.mes : '',
     tipos: new Set(pre ? pre.tipos : []),
-    especialidade: pre ? (pre.especialidade || '') : '',
+    especialidades: new Set(pre ? (pre.especialidades || []) : []),
   };
   let perfil = sel.prestador ? await getPerfil(sel.prestador) : null;
 
@@ -69,7 +69,7 @@ export async function abrirTriagem(item, onDone, opts = {}) {
     el('span', { text: 'Prestador' }),
     prestadores.length
       ? selectDe(prestadores.map((p) => ({ id: p, label: p })), sel.prestador, async (v) => {
-        sel.prestador = v; sel.tipos.clear(); sel.especialidade = '';
+        sel.prestador = v; sel.tipos.clear(); sel.especialidades.clear();
         perfil = v ? await getPerfil(v) : null;
         renderConteudo(); renderEspecialidade(); validar();
       })
@@ -128,15 +128,25 @@ export async function abrirTriagem(item, onDone, opts = {}) {
     if (!precisaEspecialidade()) { espBox.hidden = true; return; }
     espBox.hidden = false;
     const perEsp = [...sel.tipos].filter((t) => CONFIG.PER_ESPECIALIDADE.includes(t)).map(labelDe).join(' e ');
-    espBox.appendChild(el('span', { text: `Especialidade (para ${perEsp})` }));
-    espBox.appendChild(selectDe(
-      perfil.especialidades.map((e) => ({ id: e, label: e })), sel.especialidade,
-      (v) => { sel.especialidade = v; validar(); },
-    ));
+    espBox.appendChild(el('span', { text: `Especialidade(s) que este arquivo cobre — para ${perEsp} (pode marcar mais de uma)` }));
+    const chips = el('div', { class: 'chips' });
+    for (const esp of perfil.especialidades) {
+      const ligado = sel.especialidades.has(esp);
+      const b = el('button', {
+        class: `chip ${ligado ? 'on' : ''}`, type: 'button',
+        onclick: () => {
+          if (sel.especialidades.has(esp)) { sel.especialidades.delete(esp); b.classList.remove('on'); }
+          else { sel.especialidades.add(esp); b.classList.add('on'); }
+          validar();
+        },
+      }, esp);
+      chips.appendChild(b);
+    }
+    espBox.appendChild(chips);
   }
 
   function validar() {
-    const ok = sel.prestador && sel.mes && sel.tipos.size > 0 && (!precisaEspecialidade() || sel.especialidade);
+    const ok = sel.prestador && sel.mes && sel.tipos.size > 0 && (!precisaEspecialidade() || sel.especialidades.size > 0);
     btn.disabled = !ok;
   }
 
@@ -151,7 +161,7 @@ export async function abrirTriagem(item, onDone, opts = {}) {
         prestador: sel.prestador,
         mes: sel.mes,
         tiposIds: [...sel.tipos],
-        especialidade: sel.especialidade,
+        especialidades: [...sel.especialidades],
         link: fileViewLink(item.fileId),
         dataLimite: sugerirDataLimite(sel.mes, CONFIG.PRAZO_DIAS_APOS_MES),
       });
@@ -188,7 +198,7 @@ export async function abrirTriagem(item, onDone, opts = {}) {
 }
 
 function rotuloLote(sel) {
-  const esp = sel.especialidade ? ` · ${sel.especialidade}` : '';
+  const esp = sel.especialidades.size ? ` · ${[...sel.especialidades].join('+')}` : '';
   return `${sel.prestador} · ${sel.mes}${esp}`;
 }
 

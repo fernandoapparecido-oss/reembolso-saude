@@ -172,8 +172,10 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
    na fila; o **badge** mostra quantos faltam categorizar.
 2. Toque num arquivo → **preview** ao lado → escolha **Prestador**, **Mês** e marque
    **todos os tipos** que existem dentro dele → **Confirmar**. Um toque marca vários slots.
-   Se o prestador tiver **especialidades** e você marcar Relatório/Presença, o app pede a
-   **especialidade** (Fono/TO/ABA) daquele arquivo. Só aparecem os tipos que o prestador exige.
+   Se o prestador tiver **especialidades** e você marcar Relatório/Presença, o app pede a(s)
+   **especialidade(s)** (Fono/TO/ABA) daquele arquivo — **pode marcar mais de uma** quando um
+   anexo cobre várias (ex.: uma lista de presença de Fono **e** ABA marca as duas). Só aparecem
+   os tipos que o prestador exige.
 3. **Lotes** → veja `Aguardando/Completo/Enviado/Reembolsado`, filtre por
    *Faltando docs / Prontos p/ enviar / Prazo desta semana*, e **Registrar envio**
    (data de postagem, rastreio, valor) quando postar nos Correios.

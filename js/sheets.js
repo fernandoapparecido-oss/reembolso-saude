@@ -167,19 +167,22 @@ function acharLote(lotes, prestador, mes) {
   return lotes.find((l) => l.cols[COL.prestador] === prestador && l.cols[COL.mes] === mes) || null;
 }
 
-// Acrescenta um link a um slot, com rótulo de especialidade quando aplicável,
-// sem duplicar (mesma especialidade + mesmo arquivo).
-function marcarSlot(cell, tipo, link, fileId, especialidade) {
-  const label = (CONFIG.PER_ESPECIALIDADE.includes(tipo) && especialidade) ? especialidade : '';
+// Acrescenta um link a um slot. Para tipos por-especialidade, cria UMA entrada
+// rotulada por especialidade marcada (um arquivo pode cobrir várias). Para tipos
+// compartilhados, uma entrada sem rótulo. Nunca duplica (mesmo rótulo + arquivo).
+function marcarSlot(cell, tipo, link, fileId, especialidades) {
   const entries = parseSlot(cell);
-  if (!entries.some((e) => e.label === label && e.id === fileId)) entries.push({ label, link, id: fileId });
+  const add = (label) => { if (!entries.some((e) => e.label === label && e.id === fileId)) entries.push({ label, link, id: fileId }); };
+  const porEsp = CONFIG.PER_ESPECIALIDADE.includes(tipo) && especialidades && especialidades.length;
+  if (porEsp) especialidades.forEach((esp) => add(esp));
+  else add('');
   return buildSlot(entries);
 }
 
 // Confirma a triagem de UM arquivo: marca os tipos (slots) na linha do lote,
 // guardando o link (rotulado por especialidade quando for o caso). Cria o lote se não existir.
-// tiposIds: ['NF','Relatorio',...]  especialidade: 'Fono' (só p/ tipos por-especialidade).
-export async function confirmarTriagem({ prestador, mes, tiposIds, especialidade, link, dataLimite }) {
+// tiposIds: ['NF','Relatorio',...]  especialidades: ['Fono','ABA'] (p/ tipos por-especialidade).
+export async function confirmarTriagem({ prestador, mes, tiposIds, especialidades, link, dataLimite }) {
   const fileId = idFromLink(link);
   const lotes = await lerLotes();
   const alvo = acharLote(lotes, prestador, mes);
@@ -191,7 +194,7 @@ export async function confirmarTriagem({ prestador, mes, tiposIds, especialidade
     row[COL.mes] = mes;
     row[COL.status] = 'Aguardando';
   }
-  for (const t of tiposIds) row[COL[t]] = marcarSlot(row[COL[t]], t, link, fileId, especialidade);
+  for (const t of tiposIds) row[COL[t]] = marcarSlot(row[COL[t]], t, link, fileId, especialidades);
   if (!row[COL.data_limite] && dataLimite) row[COL.data_limite] = dataLimite;
 
   if (!alvo) await appendRow(SHEET_LOTES, row);
@@ -215,17 +218,20 @@ const slotTemArquivo = (cell, fileId) => parseSlot(cell).some((e) => e.id === fi
 const removerDoSlot = (cell, fileId) => buildSlot(parseSlot(cell).filter((e) => e.id !== fileId));
 
 // Descobre a classificação atual de um arquivo (procura o link nos slots dos lotes).
-// Retorna { prestador, mes, tipos:[...], especialidade } ou null.
+// Retorna { prestador, mes, tipos:[...], especialidades:[...] } ou null.
 export async function classificacaoDoArquivo(fileId) {
   const lotes = await lerLotes();
   for (const l of lotes) {
     const tipos = [];
-    let especialidade = '';
+    const especialidades = new Set();
     for (const t of TIPOS_IDS) {
-      const match = parseSlot(l.cols[COL[t]]).find((e) => e.id === fileId);
-      if (match) { tipos.push(t); if (match.label) especialidade = match.label; }
+      const matches = parseSlot(l.cols[COL[t]]).filter((e) => e.id === fileId);
+      if (matches.length) {
+        tipos.push(t);
+        matches.forEach((m) => { if (m.label) especialidades.add(m.label); });
+      }
     }
-    if (tipos.length) return { linha: l.linha, prestador: l.cols[COL.prestador], mes: l.cols[COL.mes], tipos, especialidade };
+    if (tipos.length) return { linha: l.linha, prestador: l.cols[COL.prestador], mes: l.cols[COL.mes], tipos, especialidades: [...especialidades] };
   }
   return null;
 }
