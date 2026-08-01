@@ -130,17 +130,31 @@ export async function abrirTriagem(item, onDone, opts = {}) {
     const perEsp = [...sel.tipos].filter((t) => CONFIG.PER_ESPECIALIDADE.includes(t)).map(labelDe).join(' e ');
     espBox.appendChild(el('span', { text: `Especialidade(s) que este arquivo cobre — para ${perEsp} (pode marcar mais de uma)` }));
     const chips = el('div', { class: 'chips' });
-    for (const esp of perfil.especialidades) {
+    const todas = perfil.especialidades;
+
+    // Atalho "Todas" (só quando há 2+ especialidades).
+    if (todas.length >= 2) {
+      const todasOn = todas.every((e) => sel.especialidades.has(e));
+      chips.appendChild(el('button', {
+        class: `chip chip-todas ${todasOn ? 'on' : ''}`, type: 'button',
+        onclick: () => {
+          if (todasOn) sel.especialidades.clear();
+          else todas.forEach((e) => sel.especialidades.add(e));
+          renderEspecialidade(); validar();
+        },
+      }, 'Todas'));
+    }
+
+    for (const esp of todas) {
       const ligado = sel.especialidades.has(esp);
-      const b = el('button', {
+      chips.appendChild(el('button', {
         class: `chip ${ligado ? 'on' : ''}`, type: 'button',
         onclick: () => {
-          if (sel.especialidades.has(esp)) { sel.especialidades.delete(esp); b.classList.remove('on'); }
-          else { sel.especialidades.add(esp); b.classList.add('on'); }
-          validar();
+          if (sel.especialidades.has(esp)) sel.especialidades.delete(esp);
+          else sel.especialidades.add(esp);
+          renderEspecialidade(); validar();
         },
-      }, esp);
-      chips.appendChild(b);
+      }, esp));
     }
     espBox.appendChild(chips);
   }

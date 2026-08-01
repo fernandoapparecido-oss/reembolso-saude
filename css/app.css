@@ -116,6 +116,7 @@ main { max-width: 1000px; margin: 0 auto; padding: 14px; }
   padding: 10px 14px; border-radius: 999px; font-weight: 600; cursor: pointer; font-size: 15px;
 }
 .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.chip-todas { border-style: dashed; }
 
 /* ---------- Lotes ---------- */
 .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
