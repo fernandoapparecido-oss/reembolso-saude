@@ -12,8 +12,8 @@
  * INSTALAÇÃO:
  *  1. Abra a planilha de controle NA CONTA do app (reembolsofamilia@gmail.com).
  *  2. Extensões → Apps Script. Cole este arquivo (pode conviver com aviso-prazo.gs).
- *  3. Preencha COMPARTILHAR_COM abaixo com os e-mails das contas PESSOAIS que usam
- *     o app (a sua e a da outra pessoa) — assim o preview funciona para elas.
+ *  3. Preencha COMPARTILHAR_COM (quem VÊ os anexos no preview) e
+ *     REMETENTES_PERMITIDOS (de quem o script ACEITA e-mails) — veja abaixo.
  *  4. Rode "importarAnexos" uma vez e autorize (Gmail + Drive + Sheets).
  *  5. Gatilho de tempo: relógio (⏰) → Add Trigger → importarAnexos →
  *     "Time-driven" → "Minutes timer" → a cada 5 ou 10 min. Pronto.
@@ -30,9 +30,18 @@ const COMPARTILHAR_COM = [
   // 'outra.pessoa@gmail.com',
 ];
 
+// SÓ processa e-mails ENVIADOS por estes remetentes (evita spam/newsletters com
+// anexo). Coloque a sua conta, a da outra pessoa e quaisquer remetentes de
+// confiança (ex.: a clínica que manda a NF por e-mail).
+// ⚠️ Se ficar VAZIO, o script processa e-mails de QUALQUER remetente.
+const REMETENTES_PERMITIDOS = [
+  // 'sua.conta.pessoal@gmail.com',
+  // 'outra.pessoa@gmail.com',
+  // 'contato@clinica.com.br',
+];
+
 const PASTA_DRIVE = 'Reembolso Inbox';   // pasta onde os anexos são salvos
 const LABEL_OK = 'reembolso-processado'; // rótulo p/ não reprocessar o mesmo e-mail
-const BUSCA = 'has:attachment -label:reembolso-processado newer_than:60d';
 const ABA_INBOX = 'Inbox';
 const MAX_THREADS = 50;                  // por execução (volume baixo)
 const MIN_IMAGEM_BYTES = 10 * 1024;      // ignora imagens minúsculas (ícones/logos)
@@ -40,7 +49,7 @@ const MIN_IMAGEM_BYTES = 10 * 1024;      // ignora imagens minúsculas (ícones/
 // ---- Rotina principal ----------------------------------------------------
 
 function importarAnexos() {
-  const threads = GmailApp.search(BUSCA, 0, MAX_THREADS);
+  const threads = GmailApp.search(montarBusca_(), 0, MAX_THREADS);
   if (!threads.length) return;
 
   const label = GmailApp.getUserLabelByName(LABEL_OK) || GmailApp.createLabel(LABEL_OK);
@@ -66,6 +75,15 @@ function importarAnexos() {
     });
     th.addLabel(label); // marca o e-mail como processado (mesmo sem anexo válido)
   });
+}
+
+// Monta a busca do Gmail: só anexos, não processados, últimos 60 dias e —
+// se REMETENTES_PERMITIDOS estiver preenchido — apenas desses remetentes.
+function montarBusca_() {
+  let q = 'has:attachment -label:' + LABEL_OK + ' newer_than:60d';
+  const remetentes = REMETENTES_PERMITIDOS.filter(Boolean);
+  if (remetentes.length) q += ' from:(' + remetentes.join(' OR ') + ')';
+  return q;
 }
 
 // Aceita PDF, JPG e PNG. Imagens muito pequenas são descartadas (assinaturas).

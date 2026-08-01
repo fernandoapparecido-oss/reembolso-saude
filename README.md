@@ -165,8 +165,9 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
 Para não usar o Picker a cada arquivo: mande os documentos por e-mail para a conta do app
 (ex.: `reembolsofamilia@gmail.com`) e deixe o script **`apps-script/inbox-email.gs`** salvar
 os anexos (**PDF, JPG e PNG**) numa pasta do Drive e registrá-los na aba `Inbox` — eles
-**aparecem sozinhos** no app. O script **compartilha a pasta** com as contas pessoais
-(configuradas em `COMPARTILHAR_COM`) para o preview funcionar, ignora imagens minúsculas
+**aparecem sozinhos** no app. O script **só processa e-mails de remetentes reconhecidos**
+(`REMETENTES_PERMITIDOS` — evita spam/newsletters com anexo), **compartilha a pasta** com as
+contas pessoais (`COMPARTILHAR_COM`) para o preview funcionar, ignora imagens minúsculas
 (logos de assinatura) e não reprocessa e-mails. O Picker continua para o que chega por
 WhatsApp/scan (também aceitando PDF/JPG/PNG).
 
