@@ -191,6 +191,10 @@ No card do lote, **Gerar PDF para impressão** → o app registra o pedido na pl
 Em ~1–2 min o botão vira **🖨 Imprimir** — você abre o PDF e imprime **uma vez só**.
 Instalação do script está no cabeçalho dele.
 
+> **Comprovantes criptografados:** muitos (Mercado Pago, bancos) vêm com RC4 — o script os
+> **descriptografa** antes de juntar. Se algum vier com **AES** (raro), a geração avisa qual
+> arquivo é; nesse caso **envie o comprovante como imagem** (JPG/PNG), que sempre funciona.
+
 > Por que não juntar no próprio app: com `drive.file` o app não lê os bytes dos anexos (só os
 > pré-visualiza pela sua sessão). Quem lê tudo é o Apps Script na conta dona — por isso a junção
 > acontece lá. Navegador nenhum imprime direto na impressora sem diálogo; o "uma impressão" vem
