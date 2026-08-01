@@ -31,8 +31,16 @@ async function irPara(view) {
   mostrarView(view);
   if (!isSignedIn()) return renderLogin();
   if (!store.getSheetId()) return renderConectar();
+  await garantirAbas(); // cria abas Lotes/Inbox/Config se faltarem (1x por dispositivo)
   if (view === 'inbox') await renderInbox(atualizarBadge);
   else if (view === 'lotes') await renderLotes();
+}
+
+// Garante as abas sem depender do Picker (funciona com o SHEET_ID fixo do config).
+let abasOk = false;
+async function garantirAbas() {
+  if (abasOk) return;
+  try { await ensureSheets(); abasOk = true; } catch (e) { console.warn('ensureSheets:', e.message); }
 }
 
 function renderLogin() {
@@ -51,7 +59,7 @@ function renderConectar() {
   root.innerHTML = '';
   root.appendChild(el('div', { class: 'vazio' }, [
     el('p', { text: '🔌 Conecte a planilha de controle.' }),
-    el('p', { class: 'muted', text: 'Com o escopo drive.file, cada pessoa aponta a planilha uma vez pelo Picker. Ela precisa estar compartilhada com a sua conta Google.' }),
+    el('p', { class: 'muted', text: 'Dica: preencha SHEET_ID no config.js para a planilha vir por padrão, sem esta etapa. Senão, aponte-a uma vez (ela precisa estar compartilhada com sua conta).' }),
     el('button', { class: 'btn btn-primary', onclick: onConectar }, 'Conectar planilha'),
   ]));
 }

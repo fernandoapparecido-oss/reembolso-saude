@@ -19,9 +19,10 @@ export const CONFIG = {
   // Número do projeto no Google Cloud (Project number, só dígitos). Usado pelo Picker.
   APP_ID: '709069445111',
 
-  // ID da planilha de controle (opcional aqui). Você também pode "Conectar planilha"
-  // pelo Picker dentro do app na primeira vez — recomendado para multiusuário.
-  // O ID é o trecho entre /d/ e /edit na URL da planilha.
+  // ID da planilha de controle. PREENCHA para a planilha vir por padrão, sem o
+  // Picker: todos que tiverem acesso a ela (compartilhada) já entram direto.
+  // O ID é o trecho entre /d/ e /edit na URL da planilha. Ex.: "1AbC...xyz".
+  // (Se ficar vazio, o app cai no fluxo antigo de "Conectar planilha" pelo Picker.)
   SHEET_ID: '',
 
   // ---------------------------------------------------------------------------
