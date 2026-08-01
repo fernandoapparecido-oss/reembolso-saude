@@ -152,6 +152,12 @@ function pdfEspecialidades_(ss) {
 
 function pdfCarregarLib_() {
   if (typeof PDFLib !== 'undefined') return;
+  // O Apps Script não tem setTimeout/clearTimeout, mas o pdf-lib usa. Shim síncrono
+  // (executa o callback na hora — não há I/O real, só agendamento de microtask).
+  if (typeof setTimeout === 'undefined') {
+    globalThis.setTimeout = function (fn) { if (typeof fn === 'function') fn(); return 0; };
+    globalThis.clearTimeout = function () {};
+  }
   eval(UrlFetchApp.fetch(PDF_LIB_URL).getContentText()); // define PDFLib no escopo global
 }
 
