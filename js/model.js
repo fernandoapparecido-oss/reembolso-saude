@@ -27,6 +27,9 @@ export const COL = {
   data_limite: 7, status: 8, data_postagem: 9, rastreio: 10, valor: 11,
 };
 
+// Tipos (slots de documento) na ordem das colunas — independentes dos rótulos do config.
+export const TIPOS_IDS = ['NF', 'Laudo', 'Comprovante', 'Relatorio', 'Presenca'];
+
 // Aba "Inbox": rastreia arquivos APONTADOS ao app (via Picker) e se já foram triados.
 export const INBOX_HEADER = ['fileId', 'nome', 'data_adocao', 'status', 'lote'];
 export const INBOX_COL = { fileId: 0, nome: 1, data_adocao: 2, status: 3, lote: 4 };

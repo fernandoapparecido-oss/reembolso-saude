@@ -4,7 +4,7 @@ import { getToken, ensureToken } from './auth.js';
 import { store } from './store.js';
 import {
   SHEET_LOTES, SHEET_INBOX, SHEET_CONFIG, LOTES_HEADER, INBOX_HEADER,
-  COL, INBOX_COL, colLetter,
+  COL, INBOX_COL, TIPOS_IDS, colLetter, idFromLink,
 } from './model.js';
 
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -130,6 +130,11 @@ export async function marcarInboxTriado(linha, loteLabel) {
   await updateRange(`${SHEET_INBOX}!D${linha}:E${linha}`, [['triado', loteLabel]]);
 }
 
+// Volta um item da Inbox para "pendente" (reaparece na fila).
+export async function marcarInboxPendente(linha) {
+  await updateRange(`${SHEET_INBOX}!D${linha}:E${linha}`, [['pendente', '']]);
+}
+
 // ---- Lotes ----------------------------------------------------------------
 
 export async function lerLotes() {
@@ -182,4 +187,59 @@ export async function atualizarLote(linha, patch) {
     if (COL[k] !== undefined) row[COL[k]] = v;
   }
   await updateRange(`${SHEET_LOTES}!A${linha}:L${linha}`, [row]);
+}
+
+// ---- Reclassificação ------------------------------------------------------
+
+const slots = (cell) => String(cell || '').split('|').map((s) => s.trim()).filter(Boolean);
+const slotTemArquivo = (cell, fileId) => slots(cell).some((x) => idFromLink(x) === fileId);
+const removerDoSlot = (cell, fileId) => slots(cell).filter((x) => idFromLink(x) !== fileId).join(' | ');
+
+// Descobre a classificação atual de um arquivo (procura o link nos slots dos lotes).
+// Retorna { prestador, mes, tipos:[...] } ou null.
+export async function classificacaoDoArquivo(fileId) {
+  const lotes = await lerLotes();
+  for (const l of lotes) {
+    const tipos = TIPOS_IDS.filter((t) => slotTemArquivo(l.cols[COL[t]], fileId));
+    if (tipos.length) return { linha: l.linha, prestador: l.cols[COL.prestador], mes: l.cols[COL.mes], tipos };
+  }
+  return null;
+}
+
+// Remove o link de um arquivo de TODOS os slots. Um arquivo vive em um único lote,
+// então paramos ao tratá-lo. Se o lote ficar sem nenhum link e sem dados de envio,
+// a linha é apagada (evita lote fantasma).
+export async function removerArquivoDeTodosLotes(fileId) {
+  const lotes = await lerLotes();
+  for (const l of lotes) {
+    const row = l.cols.slice();
+    while (row.length < LOTES_HEADER.length) row.push('');
+    let mudou = false;
+    for (const t of TIPOS_IDS) {
+      if (slotTemArquivo(row[COL[t]], fileId)) { row[COL[t]] = removerDoSlot(row[COL[t]], fileId); mudou = true; }
+    }
+    if (!mudou) continue;
+
+    const aindaTemLink = TIPOS_IDS.some((t) => (row[COL[t]] || '').trim());
+    const temEnvio = (row[COL.status] || 'Aguardando') !== 'Aguardando'
+      || (row[COL.data_postagem] || '') || (row[COL.rastreio] || '') || (row[COL.valor] || '');
+
+    if (!aindaTemLink && !temEnvio) await deletarLinhaLote(l.linha);
+    else await updateRange(`${SHEET_LOTES}!A${l.linha}:L${l.linha}`, [row]);
+    return; // achou o lote do arquivo; encerra
+  }
+}
+
+async function gidDaAba(titulo) {
+  const meta = await api(`/${sid()}?fields=sheets.properties(sheetId,title)`);
+  const s = (meta.sheets || []).find((x) => x.properties.title === titulo);
+  return s ? s.properties.sheetId : null;
+}
+
+async function deletarLinhaLote(linha1) {
+  const gid = await gidDaAba(SHEET_LOTES);
+  if (gid == null) return;
+  await batchUpdate([{
+    deleteDimension: { range: { sheetId: gid, dimension: 'ROWS', startIndex: linha1 - 1, endIndex: linha1 } },
+  }]);
 }

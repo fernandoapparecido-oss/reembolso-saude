@@ -1,16 +1,14 @@
-// Tela INBOX: arquivos apontados ao app que ainda NÃO foram categorizados.
+// Tela INBOX: fila de pendentes + aba de já categorizados (para reclassificar).
 import { el, clear, toast } from './ui.js';
-import { lerInbox, adotarArquivos } from './sheets.js';
+import { lerInbox, adotarArquivos, classificacaoDoArquivo } from './sheets.js';
 import { apontarArquivos } from './picker.js';
 import { abrirTriagem } from './triage.js';
 
 let cachePendentes = [];
+let cacheTriados = [];
+let abaAtual = 'pendentes'; // 'pendentes' | 'categorizados'
 
 export function pendentesCount() { return cachePendentes.length; }
-
-function atualizarBadge(onBadge) {
-  if (onBadge) onBadge(cachePendentes.length);
-}
 
 export async function renderInbox(onBadge) {
   const root = document.getElementById('view-inbox');
@@ -20,6 +18,9 @@ export async function renderInbox(onBadge) {
     el('button', { class: 'btn btn-primary', onclick: () => onApontar(onBadge) }, '＋ Apontar arquivos'),
   ]));
 
+  const abas = el('div', { class: 'filtros' });
+  root.appendChild(abas);
+
   const lista = el('div', { class: 'lista', id: 'inbox-lista' });
   root.appendChild(lista);
   lista.appendChild(el('p', { class: 'muted', text: 'Carregando…' }));
@@ -27,30 +28,71 @@ export async function renderInbox(onBadge) {
   try {
     const inbox = await lerInbox();
     cachePendentes = inbox.filter((x) => x.status !== 'triado');
-    atualizarBadge(onBadge);
-    clear(lista);
+    cacheTriados = inbox.filter((x) => x.status === 'triado');
+    if (onBadge) onBadge(cachePendentes.length);
 
-    if (cachePendentes.length === 0) {
-      lista.appendChild(el('div', { class: 'vazio' }, [
-        el('p', { text: '✅ Nada a categorizar.' }),
-        el('p', { class: 'muted', text: 'Toque em “Apontar arquivos” quando algo novo chegar por WhatsApp, e-mail ou scan.' }),
-      ]));
-      return;
-    }
+    clear(abas);
+    abas.appendChild(abaBtn('pendentes', `Pendentes (${cachePendentes.length})`, onBadge));
+    abas.appendChild(abaBtn('categorizados', `Categorizados (${cacheTriados.length})`, onBadge));
 
-    for (const item of cachePendentes) {
-      lista.appendChild(el('button', {
-        class: 'card card-file',
-        onclick: () => abrirTriagem(item, () => renderInbox(onBadge)),
-      }, [
-        el('span', { class: 'file-ico', text: '📄' }),
-        el('span', { class: 'file-nome', text: item.nome || item.fileId }),
-        el('span', { class: 'chevron', text: '›' }),
-      ]));
-    }
+    desenharLista(lista, onBadge);
   } catch (e) {
     clear(lista);
     lista.appendChild(erroBox(e));
+  }
+}
+
+function abaBtn(id, label, onBadge) {
+  return el('button', {
+    class: `filtro ${abaAtual === id ? 'on' : ''}`, 'data-aba': id,
+    onclick: () => {
+      abaAtual = id;
+      document.querySelectorAll('#view-inbox .filtro').forEach((b) => b.classList.toggle('on', b.getAttribute('data-aba') === id));
+      desenharLista(document.getElementById('inbox-lista'), onBadge);
+    },
+  }, label);
+}
+
+function desenharLista(lista, onBadge) {
+  clear(lista);
+  const itens = abaAtual === 'pendentes' ? cachePendentes : cacheTriados;
+
+  if (itens.length === 0) {
+    lista.appendChild(el('div', { class: 'vazio' }, [
+      el('p', { text: abaAtual === 'pendentes' ? '✅ Nada a categorizar.' : 'Nada categorizado ainda.' }),
+      abaAtual === 'pendentes'
+        ? el('p', { class: 'muted', text: 'Chega por e-mail sozinho, ou toque em “Apontar arquivos”.' })
+        : el('p', { class: 'muted', text: 'Aqui aparecem os arquivos já triados, para reclassificar se precisar.' }),
+    ]));
+    return;
+  }
+
+  for (const item of itens) {
+    const filhos = [
+      el('span', { class: 'file-ico', text: '📄' }),
+      el('span', { class: 'file-nome', text: item.nome || item.fileId }),
+    ];
+    if (abaAtual === 'categorizados' && item.lote) {
+      filhos.push(el('span', { class: 'file-lote muted', text: item.lote }));
+    }
+    filhos.push(el('span', { class: 'chevron', text: abaAtual === 'categorizados' ? '✎' : '›' }));
+
+    lista.appendChild(el('button', {
+      class: 'card card-file',
+      onclick: () => (abaAtual === 'pendentes'
+        ? abrirTriagem(item, () => renderInbox(onBadge))
+        : onReclassificar(item, onBadge)),
+    }, filhos));
+  }
+}
+
+async function onReclassificar(item, onBadge) {
+  try {
+    const pre = await classificacaoDoArquivo(item.fileId); // {prestador,mes,tipos} ou null
+    abrirTriagem(item, () => renderInbox(onBadge), { reclassify: true, preselecao: pre });
+  } catch (e) {
+    toast('Não foi possível abrir para reclassificar.', 'err');
+    console.warn(e.message);
   }
 }
 

@@ -82,7 +82,11 @@ main { max-width: 1000px; margin: 0 auto; padding: 14px; }
 .card-file:active { background: var(--surface-2); }
 .file-ico { font-size: 22px; }
 .file-nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-lote { font-size: 12px; flex: 0 0 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chevron { color: var(--muted); font-size: 22px; }
+
+.reclass-hint { margin: -4px 0 12px; font-size: 14px; }
+.btn-danger-text { color: var(--danger); }
 
 /* ---------- Triagem ---------- */
 .triage-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }

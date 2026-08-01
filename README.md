@@ -161,6 +161,12 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
    *Faltando docs / Prontos p/ enviar / Prazo desta semana*, e **Registrar envio**
    (data de postagem, rastreio, valor) quando postar nos Correios.
 
+### Reclassificar (corrigir um erro)
+Na **Inbox**, aba **Categorizados**, toque no arquivo (ícone ✎). A tela abre já com o que
+estava marcado; corrija **prestador, mês ou tipos** e **Salvar correção** — o app remove a
+marcação anterior e aplica a nova (se o lote antigo ficar vazio, ele some sozinho). Ou use
+**Remover do lote e voltar à fila** para desfazer e triar de novo depois.
+
 ## Entrada por e-mail (opcional, recomendado)
 Para não usar o Picker a cada arquivo: mande os documentos por e-mail para a conta do app
 (ex.: `reembolsofamilia@gmail.com`) e deixe o script **`apps-script/inbox-email.gs`** salvar
