@@ -10,60 +10,71 @@
  * especialidade, Relatório + Presença de cada terapia (Fono, TO, ABA…).
  * Junta PDFs e imagens (JPG/PNG viram página A4).
  *
+ * OBS.: no Apps Script todos os .gs dividem o MESMO escopo. Por isso os nomes
+ * aqui têm prefixo PDF_/pdf para não colidir com inbox-email.gs / aviso-prazo.gs.
+ *
  * INSTALAÇÃO (na conta reembolsofamilia@gmail.com, dona da planilha/arquivos):
  *  1. Abra a planilha → Extensões → Apps Script (pode ficar junto dos outros .gs).
- *  2. Cole este arquivo. Preencha COMPARTILHAR_COM (contas que vão IMPRIMIR).
+ *  2. Preencha PDF_COMPARTILHAR_COM (contas que vão IMPRIMIR). Se você já
+ *     preencheu COMPARTILHAR_COM no inbox-email.gs, pode DEIXAR VAZIO aqui — o
+ *     script reaproveita aquela lista automaticamente.
  *  3. Rode "gerarPdfsPendentes" uma vez e autorize (Drive + Sheets + acesso externo
  *     para baixar a biblioteca pdf-lib).
  *  4. Gatilho de tempo: ⏰ → Add Trigger → gerarPdfsPendentes → Time-driven →
  *     Minutes timer → a cada 1 ou 5 minutos.
  */
 
-// Contas que usam o app e vão abrir/imprimir o PDF (dá acesso à pasta dos PDFs).
-const COMPARTILHAR_COM = [
+// Contas que vão abrir/imprimir o PDF. Deixe vazio se já preencheu COMPARTILHAR_COM
+// no inbox-email.gs (será reaproveitado).
+const PDF_COMPARTILHAR_COM = [
   // 'sua.conta.pessoal@gmail.com',
   // 'outra.pessoa@gmail.com',
 ];
 
-const ABA_LOTES = 'Lotes';
-const ABA_CONFIG = 'Config';
-const PASTA_PDF = 'Reembolso PDFs';
-const PDFLIB_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+const PDF_ABA_LOTES = 'Lotes';
+const PDF_ABA_CONFIG = 'Config';
+const PDF_PASTA = 'Reembolso PDFs';
+const PDF_LIB_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 
 // Colunas (0-based) — devem bater com js/model.js
-const C = { prestador: 0, mes: 1, NF: 2, Laudo: 3, Comprovante: 4, Relatorio: 5, Presenca: 6, pedido: 12, pdf: 13 };
+const PDFC = { prestador: 0, mes: 1, NF: 2, Laudo: 3, Comprovante: 4, Relatorio: 5, Presenca: 6, pedido: 12, pdf: 13 };
+
+function pdfEmailsCompartilhar_() {
+  if (typeof COMPARTILHAR_COM !== 'undefined' && COMPARTILHAR_COM.filter(Boolean).length) return COMPARTILHAR_COM;
+  return PDF_COMPARTILHAR_COM;
+}
 
 async function gerarPdfsPendentes() {
   const ss = SpreadsheetApp.getActive();
-  const sh = ss.getSheetByName(ABA_LOTES);
+  const sh = ss.getSheetByName(PDF_ABA_LOTES);
   if (!sh) return;
   const vals = sh.getDataRange().getValues();
-  const esps = lerEspecialidades_(ss);
+  const esps = pdfEspecialidades_(ss);
 
   for (let i = 1; i < vals.length; i++) {
     const row = vals[i];
-    if (!String(row[C.pedido] || '').trim()) continue;   // sem pedido
+    if (!String(row[PDFC.pedido] || '').trim()) continue;   // sem pedido
     const linha = i + 1;
     try {
-      carregarPdfLib_();
-      const ids = coletarIds_(row, esps[String(row[C.prestador] || '').trim()] || []);
+      pdfCarregarLib_();
+      const ids = pdfColetarIds_(row, esps[String(row[PDFC.prestador] || '').trim()] || []);
       if (!ids.length) throw new Error('lote sem documentos');
-      const nome = `${row[C.prestador]} ${row[C.mes]}`.replace(/[\\/:*?"<>|]/g, '-').trim();
-      const url = salvarPdf_(await montarPdf_(ids), nome);
-      escrever_(sh, linha, url, '');            // pdf_lote = link, limpa pedido
+      const nome = `${row[PDFC.prestador]} ${row[PDFC.mes]}`.replace(/[\\/:*?"<>|]/g, '-').trim();
+      const url = pdfSalvar_(await pdfMontar_(ids), nome);
+      pdfEscrever_(sh, linha, url, '');            // pdf_lote = link, limpa pedido
     } catch (e) {
-      escrever_(sh, linha, `ERRO: ${e.message}`, ''); // some o "Gerando", mostra o erro no app
+      pdfEscrever_(sh, linha, `ERRO: ${e.message}`, ''); // some o "Gerando", mostra o erro no app
     }
   }
 }
 
-function escrever_(sh, linha, pdf, pedido) {
-  sh.getRange(linha, C.pdf + 1).setValue(pdf);
-  sh.getRange(linha, C.pedido + 1).setValue(pedido);
+function pdfEscrever_(sh, linha, pdf, pedido) {
+  sh.getRange(linha, PDFC.pdf + 1).setValue(pdf);
+  sh.getRange(linha, PDFC.pedido + 1).setValue(pedido);
 }
 
 // Monta o PDF único (pdf-lib). Retorna Uint8Array.
-async function montarPdf_(ids) {
+async function pdfMontar_(ids) {
   const { PDFDocument } = PDFLib;
   const out = await PDFDocument.create();
   const A4 = [595.28, 841.89];
@@ -90,34 +101,33 @@ async function montarPdf_(ids) {
   return out.save();
 }
 
-function salvarPdf_(pdfBytes, nome) {
-  const pasta = pegarOuCriarPasta_(PASTA_PDF);
-  // remove versão anterior do mesmo lote
+function pdfSalvar_(pdfBytes, nome) {
+  const pasta = pdfPasta_(PDF_PASTA);
   const it = pasta.getFilesByName(`${nome}.pdf`);
-  while (it.hasNext()) it.next().setTrashed(true);
+  while (it.hasNext()) it.next().setTrashed(true); // remove versão anterior
   const arq = pasta.createFile(Utilities.newBlob(pdfBytes, 'application/pdf', `${nome}.pdf`));
-  compartilhar_(arq);
+  pdfEmailsCompartilhar_().filter(Boolean).forEach((email) => { try { arq.addViewer(email); } catch (e) { /* ok */ } });
   return arq.getUrl();
 }
 
 // ---- ordem e leitura de slots --------------------------------------------
 
-function coletarIds_(row, especialidades) {
+function pdfColetarIds_(row, especialidades) {
   const ids = []; const seen = {};
   const push = (id) => { if (id && !seen[id]) { seen[id] = 1; ids.push(id); } };
-  const slot = (idx) => parseSlot_(row[idx]);
+  const slot = (idx) => pdfParseSlot_(row[idx]);
 
-  [C.NF, C.Comprovante, C.Laudo].forEach((idx) => slot(idx).forEach((e) => push(e.id)));
+  [PDFC.NF, PDFC.Comprovante, PDFC.Laudo].forEach((idx) => slot(idx).forEach((e) => push(e.id)));
   if (especialidades.length) {
-    especialidades.forEach((esp) => [C.Relatorio, C.Presenca].forEach((idx) => slot(idx).filter((e) => e.label === esp).forEach((e) => push(e.id))));
-    [C.Relatorio, C.Presenca].forEach((idx) => slot(idx).filter((e) => !e.label).forEach((e) => push(e.id))); // legado sem rótulo
+    especialidades.forEach((esp) => [PDFC.Relatorio, PDFC.Presenca].forEach((idx) => slot(idx).filter((e) => e.label === esp).forEach((e) => push(e.id))));
+    [PDFC.Relatorio, PDFC.Presenca].forEach((idx) => slot(idx).filter((e) => !e.label).forEach((e) => push(e.id))); // legado sem rótulo
   } else {
-    [C.Relatorio, C.Presenca].forEach((idx) => slot(idx).forEach((e) => push(e.id)));
+    [PDFC.Relatorio, PDFC.Presenca].forEach((idx) => slot(idx).forEach((e) => push(e.id)));
   }
   return ids;
 }
 
-function parseSlot_(cell) {
+function pdfParseSlot_(cell) {
   return String(cell || '').split('|').map((s) => s.trim()).filter(String).map((entry) => {
     const i = entry.indexOf('::');
     const link = i > 0 ? entry.slice(i + 2).trim() : entry;
@@ -127,8 +137,8 @@ function parseSlot_(cell) {
   });
 }
 
-function lerEspecialidades_(ss) {
-  const sh = ss.getSheetByName(ABA_CONFIG); const map = {};
+function pdfEspecialidades_(ss) {
+  const sh = ss.getSheetByName(PDF_ABA_CONFIG); const map = {};
   if (!sh) return map;
   const v = sh.getDataRange().getValues();
   for (let i = 1; i < v.length; i++) {
@@ -140,19 +150,15 @@ function lerEspecialidades_(ss) {
 
 // ---- infra ---------------------------------------------------------------
 
-function carregarPdfLib_() {
+function pdfCarregarLib_() {
   if (typeof PDFLib !== 'undefined') return;
-  eval(UrlFetchApp.fetch(PDFLIB_URL).getContentText()); // define PDFLib no escopo global
+  eval(UrlFetchApp.fetch(PDF_LIB_URL).getContentText()); // define PDFLib no escopo global
 }
 
-function pegarOuCriarPasta_(nome) {
+function pdfPasta_(nome) {
   const it = DriveApp.getFoldersByName(nome);
   if (it.hasNext()) return it.next();
   const pasta = DriveApp.createFolder(nome);
-  COMPARTILHAR_COM.filter(Boolean).forEach((email) => { try { pasta.addViewer(email); } catch (e) { /* ok */ } });
+  pdfEmailsCompartilhar_().filter(Boolean).forEach((email) => { try { pasta.addViewer(email); } catch (e) { /* ok */ } });
   return pasta;
-}
-
-function compartilhar_(arq) {
-  COMPARTILHAR_COM.filter(Boolean).forEach((email) => { try { arq.addViewer(email); } catch (e) { /* ok */ } });
 }
