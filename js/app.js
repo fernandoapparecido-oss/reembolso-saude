@@ -31,9 +31,18 @@ async function irPara(view) {
   mostrarView(view);
   if (!isSignedIn()) return renderLogin();
   if (!store.getSheetId()) return renderConectar();
-  await garantirAbas(); // cria abas Lotes/Inbox/Config se faltarem (1x por dispositivo)
-  if (view === 'inbox') await renderInbox(atualizarBadge);
-  else if (view === 'lotes') await renderLotes();
+  try {
+    await garantirAbas(); // cria abas Lotes/Inbox/Config se faltarem (1x por dispositivo)
+    if (view === 'inbox') await renderInbox(atualizarBadge);
+    else if (view === 'lotes') await renderLotes();
+  } catch (e) {
+    if ((e.message || '') === 'SEM_ACESSO') {
+      store.clearSheetId();
+      abasOk = false;
+      toast('Perdi o acesso à planilha. Reconecte, por favor.', 'err');
+      renderConectar();
+    } else throw e;
+  }
 }
 
 // Garante as abas sem depender do Picker (funciona com o SHEET_ID fixo do config).

@@ -55,6 +55,7 @@ export async function renderLotes() {
     clearTimeout(timerPoll);
     if (analises.some((a) => a.pedido_pdf)) timerPoll = setTimeout(renderLotes, 20000);
   } catch (e) {
+    if ((e.message || '') === 'SEM_ACESSO') throw e; // app trata (reconectar)
     clear(lista);
     if ((e.message || '').includes('SEM_PLANILHA')) lista.appendChild(el('div', { class: 'vazio' }, [el('p', { text: '🔌 Conecte a planilha no topo primeiro.' })]));
     else lista.appendChild(el('div', { class: 'vazio' }, [el('p', { text: 'Erro ao carregar.' }), el('p', { class: 'muted', text: e.message })]));

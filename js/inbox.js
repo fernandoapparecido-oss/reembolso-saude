@@ -37,6 +37,7 @@ export async function renderInbox(onBadge) {
 
     desenharLista(lista, onBadge);
   } catch (e) {
+    if ((e.message || '') === 'SEM_ACESSO') throw e; // app trata (reconectar)
     clear(lista);
     lista.appendChild(erroBox(e));
   }

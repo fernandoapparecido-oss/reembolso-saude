@@ -30,14 +30,21 @@ async function fetchWithBackoff(url, opts, tentativas = 4) {
 
 async function api(path, opts = {}) {
   await ensureToken();
-  const res = await fetchWithBackoff(`${BASE}${path}`, {
-    ...opts,
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-      'Content-Type': 'application/json',
-      ...(opts.headers || {}),
-    },
-  });
+  let res;
+  try {
+    res = await fetchWithBackoff(`${BASE}${path}`, {
+      ...opts,
+      headers: {
+        Authorization: `Bearer ${getToken()}`,
+        'Content-Type': 'application/json',
+        ...(opts.headers || {}),
+      },
+    });
+  } catch (e) {
+    // 401/403/404 = perdeu acesso à planilha (ou ID inválido) → sinaliza p/ reconectar.
+    if (/\b(401|403|404)\b/.test(e.message || '')) throw new Error('SEM_ACESSO');
+    throw e;
+  }
   return res.status === 204 ? {} : res.json();
 }
 
