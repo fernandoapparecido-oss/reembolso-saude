@@ -3,6 +3,7 @@
 
 export const SHEET_LOTES = 'Lotes';
 export const SHEET_INBOX = 'Inbox';
+export const SHEET_CONFIG = 'Config'; // prestadores (coluna A) — fora do repo público
 
 // Ordem das colunas da aba "Lotes" (0-indexado). Também é o cabeçalho.
 export const LOTES_HEADER = [

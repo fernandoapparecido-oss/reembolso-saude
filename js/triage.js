@@ -4,10 +4,26 @@ import { CONFIG } from './config.js';
 import { el, clear, toast, mostrarView } from './ui.js';
 import { filePreviewLink, fileViewLink, mesesRecentes, sugerirDataLimite } from './model.js';
 import { confirmarTriagem, marcarInboxTriado } from './sheets.js';
+import { getPrestadores } from './catalog.js';
 
-export function abrirTriagem(item, onDone) {
+export async function abrirTriagem(item, onDone) {
   mostrarView('triage');
   const root = document.getElementById('view-triage');
+  clear(root);
+  root.appendChild(el('p', { class: 'muted', text: 'Carregando…' }));
+
+  let prestadores = [];
+  try {
+    prestadores = await getPrestadores();
+  } catch (e) {
+    clear(root);
+    root.appendChild(el('div', { class: 'vazio' }, [
+      el('button', { class: 'btn btn-ghost', onclick: () => { mostrarView('inbox'); if (onDone) onDone(); } }, '‹ Voltar'),
+      el('p', { text: 'Não foi possível ler a lista de prestadores (aba Config).' }),
+      el('p', { class: 'muted', text: e.message }),
+    ]));
+    return;
+  }
   clear(root);
 
   const sel = { prestador: '', mes: '', tipos: new Set() };
@@ -35,10 +51,12 @@ export function abrirTriagem(item, onDone) {
   const form = el('div', { class: 'form' });
   grid.appendChild(form);
 
-  // Prestador
+  // Prestador (lista vinda da aba Config da planilha)
   form.appendChild(el('label', { class: 'campo' }, [
     el('span', { text: 'Prestador' }),
-    selectDe(CONFIG.PRESTADORES.map((p) => ({ id: p, label: p })), (v) => { sel.prestador = v; validar(); }),
+    prestadores.length
+      ? selectDe(prestadores.map((p) => ({ id: p, label: p })), (v) => { sel.prestador = v; validar(); })
+      : el('span', { class: 'muted', text: 'Nenhum prestador na aba Config da planilha — adicione na coluna A.' }),
   ]));
 
   // Mês de referência

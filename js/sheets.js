@@ -3,7 +3,7 @@
 import { getToken, ensureToken } from './auth.js';
 import { store } from './store.js';
 import {
-  SHEET_LOTES, SHEET_INBOX, LOTES_HEADER, INBOX_HEADER,
+  SHEET_LOTES, SHEET_INBOX, SHEET_CONFIG, LOTES_HEADER, INBOX_HEADER,
   COL, INBOX_COL, colLetter,
 } from './model.js';
 
@@ -72,18 +72,33 @@ async function batchUpdate(requests) {
   return api(`/${sid()}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
 }
 
-// Garante que as abas Lotes/Inbox existam com cabeçalho. Idempotente.
+// Garante que as abas Lotes/Inbox/Config existam com cabeçalho. Idempotente.
 export async function ensureSheets() {
   const meta = await getMeta();
   const titles = (meta.sheets || []).map((s) => s.properties.title);
   const reqs = [];
   if (!titles.includes(SHEET_LOTES)) reqs.push({ addSheet: { properties: { title: SHEET_LOTES } } });
   if (!titles.includes(SHEET_INBOX)) reqs.push({ addSheet: { properties: { title: SHEET_INBOX } } });
+  const criarConfig = !titles.includes(SHEET_CONFIG);
+  if (criarConfig) reqs.push({ addSheet: { properties: { title: SHEET_CONFIG } } });
   if (reqs.length) await batchUpdate(reqs);
 
-  // Cabeçalhos (sobrescreve a linha 1 — barato e garante consistência).
+  // Cabeçalhos das abas de dados (sobrescreve a linha 1 — barato e consistente).
   await updateRange(`${SHEET_LOTES}!A1:${colLetter(LOTES_HEADER.length - 1)}1`, [LOTES_HEADER]);
   await updateRange(`${SHEET_INBOX}!A1:${colLetter(INBOX_HEADER.length - 1)}1`, [INBOX_HEADER]);
+
+  // Config: semeia SÓ na criação, para não apagar a lista que você mantém lá.
+  if (criarConfig) {
+    await updateRange(`${SHEET_CONFIG}!A1:A4`, [
+      ['prestador'], ['Clínica A'], ['Terapeuta B'], ['Fono C'],
+    ]);
+  }
+}
+
+// Lê a lista de prestadores da aba Config (coluna A, ignorando o cabeçalho).
+export async function lerPrestadores() {
+  const rows = await getValues(`${SHEET_CONFIG}!A2:A`);
+  return rows.map((r) => (r[0] || '').trim()).filter(Boolean);
 }
 
 // ---- Inbox ----------------------------------------------------------------

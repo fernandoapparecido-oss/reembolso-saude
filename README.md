@@ -35,11 +35,12 @@ concede o `drive.file` daquele arquivo ao app.
 ```
 index.html            Shell do app
 css/app.css           Estilo (mobile-first, "por toque")
-js/config.js          ⬅️ ÚNICO arquivo que VOCÊ edita (client_id, api_key, listas)
+js/config.js          ⬅️ ÚNICO arquivo que VOCÊ edita (client_id, api_key, app_id, tipos)
 js/auth.js            Login Google (GIS token client)
 js/picker.js          Google Picker (adoção de arquivos e da planilha)
 js/sheets.js          Leitura/gravação na planilha + backoff 403/429
-js/model.js           Formato das abas Lotes/Inbox (fonte da verdade)
+js/model.js           Formato das abas Lotes/Inbox/Config (fonte da verdade)
+js/catalog.js         Cache da lista de prestadores (lida da aba Config)
 js/inbox.js           Tela INBOX (fila de pendências + badge)
 js/triage.js          Tela TRIAGEM (preview + categorização)
 js/lotes.js           Tela LOTES (status, prazos, registro de envio)
@@ -62,8 +63,13 @@ Aba **`Inbox`** — arquivos apontados ao app e se já foram triados:
 
 | fileId | nome | data_adocao | status | lote |
 
-> As duas abas e os cabeçalhos são **criados automaticamente** pelo app ao conectar a
-> planilha (`ensureSheets`). Você não precisa montá-las à mão.
+Aba **`Config`** — **lista de prestadores** (coluna A, um por linha). Fica **na planilha,
+não no código**, para não expor nomes num repositório público. Edite aqui sem precisar de
+commit; todos os usuários passam a ver a mesma lista.
+
+> As três abas e os cabeçalhos são **criados automaticamente** pelo app ao conectar a
+> planilha (`ensureSheets`). Você não precisa montá-las à mão — a `Config` já vem com
+> exemplos que você substitui pelos seus prestadores (use codinome se quiser).
 
 ---
 
@@ -124,8 +130,9 @@ Em **APIs & Services → Library**, habilite (Enable) as três:
    `SHEET_ID` no `config.js`. Mesmo assim, cada pessoa fará **Conectar planilha** uma vez.
 
 ### 8. Preencher o `js/config.js`
-Abra `js/config.js` e preencha `CLIENT_ID`, `API_KEY`, `APP_ID` (Project number), e ajuste
-as listas `PRESTADORES` e `TIPOS`. Faça commit.
+Abra `js/config.js` e preencha `CLIENT_ID`, `API_KEY`, `APP_ID` (Project number). Se quiser,
+ajuste a lista `TIPOS` (genérica). **Os prestadores NÃO ficam aqui** — você os edita na aba
+`Config` da planilha (coluna A), depois de conectar. Faça commit do `config.js`.
 
 ### 9. Deploy no GitHub Pages
 1. **Settings → Pages** → *Build and deployment* → **Source: GitHub Actions**.
@@ -159,13 +166,27 @@ faz login com a **própria conta Google**, conecta a planilha uma vez e passa a 
 mesmos lotes. Não é preciso ser o dono do projeto.
 
 ## Privacidade
-- **Codinome** no lugar do nome do paciente (inclusive em `PRESTADORES`, se quiser).
-- O app **não loga** token nem dados sensíveis. Identificadores ficam claros no código:
-  o ID da planilha (não sensível) em `js/store.js`; o token vive **só em memória** em
-  `js/auth.js`.
-- `CLIENT_ID` e `API_KEY` são **públicos por natureza** no fluxo browser — a proteção é a
-  **restrição por origem/referrer** (passos 5 e 6). Nada que seja segredo de verdade fica no
-  front.
+
+**`CLIENT_ID` e `API_KEY` não são segredos.** No OAuth no browser eles **precisam** ser
+enviados ao navegador — vale para qualquer app desse tipo, público ou privado. Repo privado
+**não** os esconderia (continuam servidos ao browser de quem usa). O Google os trata como
+**identificadores públicos, não credenciais**: sozinhos, **não dão acesso a nada**.
+
+O que realmente protege os dados (nada disso está no repositório):
+1. **Origem** restrita no OAuth Client (passo 5) — o `client_id` só funciona no seu domínio.
+2. **Referrer + API** restritos na API key (passo 6).
+3. **Test users** (passo 4.5): mantendo o app em *Testing*, só as contas que você adicionar
+   conseguem concluir o login. Um estranho com o `client_id` **não entra**.
+4. **Login Google + compartilhamento + escopo `drive.file`**: os dados (com codinome) vivem
+   **só no Drive/Sheets**, nunca no repo.
+
+Boas práticas neste app:
+- **Codinome** no lugar do nome do paciente — e os **prestadores ficam na aba `Config` da
+  planilha**, não no código, para não aparecerem no repositório público.
+- O app **não loga** token nem dados sensíveis. O token vive **só em memória** (`js/auth.js`);
+  o ID da planilha (não sensível) fica em `localStorage` (`js/store.js`), **não** no repo.
+- Mantenha o app em **Testing** com a lista de **Test users** enxuta (mínimo de pessoas) e
+  **2FA** na conta.
 
 ## Cota
 Volume baixo (dezenas de chamadas/sessão). As chamadas ao Sheets/Drive tratam **403/429**

@@ -25,15 +25,13 @@ export const CONFIG = {
   SHEET_ID: '',
 
   // ---------------------------------------------------------------------------
-  //  Listas fixas de seleção (edite à vontade — sem digitação livre no app)
+  //  Listas de seleção (sem digitação livre no app)
   // ---------------------------------------------------------------------------
 
-  // Prestadores (clínicas/terapeutas). Use CODINOME se preferir não expor nomes.
-  PRESTADORES: [
-    'Clínica A',
-    'Terapeuta B',
-    'Fono C',
-  ],
+  // PRESTADORES **não** ficam aqui, de propósito: para não expor nomes de
+  // clínicas/terapeutas num repositório público. Eles vivem na aba "Config" da
+  // planilha (coluna A) — você edita lá, sem commit, e todos os usuários veem a
+  // mesma lista. Use codinome se preferir. O app cria essa aba sozinho.
 
   // Tipos de documento que podem existir dentro de um arquivo. NÃO renomeie as
   // chaves (id) sem atualizar a planilha; o "label" é só o texto do botão.
