@@ -34,7 +34,7 @@ jobs:
           for f in js/*.js; do
             sed -i -E "s@(\./[A-Za-z0-9_-]+\.js)(['\"])@\1?v=$VER\2@g" "$f"
           done
-          sed -i "s#__BUILD__#$VER#g" js/version.js
+          sed -i "s#__BUILD__#$VER#g" js/version.js sw.js
           echo "Carimbado: $VER"
 
       - uses: actions/upload-pages-artifact@v3

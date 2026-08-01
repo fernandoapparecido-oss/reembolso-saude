@@ -1,5 +1,5 @@
 // Orquestrador: carrega SDKs, cuida do login, conecta a planilha e roteia telas.
-import { initAuth, isSignedIn, onAuthChange, signIn, signOut } from './auth.js';
+import { initAuth, isSignedIn, onAuthChange, signIn, signOut, signInSilent, jaLogouAntes } from './auth.js';
 import { store } from './store.js';
 import { ensureSheets } from './sheets.js';
 import { conectarPlanilha } from './picker.js';
@@ -114,15 +114,28 @@ function ligarEventos() {
   });
 }
 
+function registrarSW() {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
 async function main() {
+  registrarSW();
   const tag = $('build-tag');
   if (tag) tag.textContent = `versão ${buildLabel()}`;
   await esperarSDKs();
   initAuth();
   ligarEventos();
+
+  // Login silencioso para quem já concedeu acesso neste dispositivo (sem popup).
+  if (!isSignedIn() && jaLogouAntes()) await signInSilent();
   atualizarTopbar();
-  if (isSignedIn()) await irPara('inbox');
-  else renderLogin();
+
+  if (isSignedIn()) {
+    if (!store.getSheetId()) renderConectar();
+    else await irPara('inbox');
+  } else {
+    renderLogin();
+  }
 }
 
 main();
