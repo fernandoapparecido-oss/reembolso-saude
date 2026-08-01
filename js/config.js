@@ -11,7 +11,7 @@
 
 export const CONFIG = {
   // OAuth Client ID (tipo "Web application"). Ex.: "1234-abcd.apps.googleusercontent.com"
-  CLIENT_ID: 'PREENCHA_SEU_CLIENT_ID.apps.googleusercontent.com',
+  CLIENT_ID: '709069445111-mhoiclvh1t2s1f2krlpp2nvl35s62fpm.apps.googleusercontent.com',
 
   // API key (para o Google Picker). Restrinja por HTTP referrer no Console.
   API_KEY: 'PREENCHA_SUA_API_KEY',
