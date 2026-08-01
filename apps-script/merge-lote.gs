@@ -85,7 +85,7 @@ async function pdfMontar_(ids) {
     const mime = file.getMimeType();
     const bytes = new Uint8Array(file.getBlob().getBytes());
     if (mime === 'application/pdf') {
-      const src = await PDFDocument.load(bytes, { ignoreEncryption: true });
+      const src = await pdfNormalizar_(bytes); // re-escreve os fluxos p/ evitar zlib inconsistente
       const pgs = await out.copyPages(src, src.getPageIndices());
       pgs.forEach((p) => out.addPage(p));
     } else if (mime === 'image/jpeg' || mime === 'image/png') {
@@ -98,7 +98,16 @@ async function pdfMontar_(ids) {
     }
     // outros tipos: ignora silenciosamente
   }
-  return out.save();
+  return out.save({ useObjectStreams: false });
+}
+
+// Carrega um PDF e o re-salva uma vez, para normalizar fluxos malformados
+// (ex.: stream rotulado FlateDecode mas com bytes inconsistentes → página branca).
+async function pdfNormalizar_(bytes) {
+  const { PDFDocument } = PDFLib;
+  const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, throwOnInvalidObject: false });
+  const re = await doc.save({ useObjectStreams: false });
+  return PDFDocument.load(re, { ignoreEncryption: true });
 }
 
 function pdfSalvar_(pdfBytes, nome) {
