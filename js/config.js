@@ -17,7 +17,7 @@ export const CONFIG = {
   API_KEY: 'AIzaSyBUV7Wn55sRA0vSY5GCBqb-sIffhuhXpcM',
 
   // Número do projeto no Google Cloud (Project number, só dígitos). Usado pelo Picker.
-  APP_ID: 'PREENCHA_O_PROJECT_NUMBER',
+  APP_ID: '709069445111',
 
   // ID da planilha de controle (opcional aqui). Você também pode "Conectar planilha"
   // pelo Picker dentro do app na primeira vez — recomendado para multiusuário.
