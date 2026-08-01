@@ -83,20 +83,26 @@ async function pdfMontar_(ids) {
   for (const id of ids) {
     const file = DriveApp.getFileById(id);
     const mime = file.getMimeType();
-    const bytes = new Uint8Array(file.getBlob().getBytes());
-    if (mime === 'application/pdf') {
-      const src = await pdfNormalizar_(bytes); // re-escreve os fluxos p/ evitar zlib inconsistente
-      const pgs = await out.copyPages(src, src.getPageIndices());
-      pgs.forEach((p) => out.addPage(p));
-    } else if (mime === 'image/jpeg' || mime === 'image/png') {
-      const img = mime === 'image/jpeg' ? await out.embedJpg(bytes) : await out.embedPng(bytes);
-      const page = out.addPage(A4);
-      const maxW = A4[0] - 2 * margem; const maxH = A4[1] - 2 * margem;
-      const s = Math.min(maxW / img.width, maxH / img.height, 1);
-      const w = img.width * s; const h = img.height * s;
-      page.drawImage(img, { x: (A4[0] - w) / 2, y: (A4[1] - h) / 2, width: w, height: h });
+    const raw = file.getBlob().getBytes(); // bytes assinados do Drive
+    try {
+      if (mime === 'application/pdf') {
+        const claro = pdfDescriptografar_(raw); // remove criptografia RC4, se houver
+        const src = await pdfNormalizar_(new Uint8Array(claro)); // re-escreve fluxos
+        const pgs = await out.copyPages(src, src.getPageIndices());
+        pgs.forEach((p) => out.addPage(p));
+      } else if (mime === 'image/jpeg' || mime === 'image/png') {
+        const bytes = new Uint8Array(raw);
+        const img = mime === 'image/jpeg' ? await out.embedJpg(bytes) : await out.embedPng(bytes);
+        const page = out.addPage(A4);
+        const maxW = A4[0] - 2 * margem; const maxH = A4[1] - 2 * margem;
+        const s = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = img.width * s; const h = img.height * s;
+        page.drawImage(img, { x: (A4[0] - w) / 2, y: (A4[1] - h) / 2, width: w, height: h });
+      }
+      // outros tipos: ignora silenciosamente
+    } catch (e) {
+      throw new Error(`"${file.getName()}": ${e.message}`);
     }
-    // outros tipos: ignora silenciosamente
   }
   return out.save({ useObjectStreams: false });
 }
@@ -176,4 +182,104 @@ function pdfPasta_(nome) {
   const pasta = DriveApp.createFolder(nome);
   pdfEmailsCompartilhar_().filter(Boolean).forEach((email) => { try { pasta.addViewer(email); } catch (e) { /* ok */ } });
   return pasta;
+}
+
+// ---- Descriptografia de PDF (RC4 / senha de usuário vazia) ----------------
+// Muitos comprovantes (Mercado Pago, bancos) vêm criptografados. O pdf-lib não
+// descriptografa e gera página em branco. Aqui deciframos os streams (RC4, V2/R2-R3)
+// e neutralizamos o /Encrypt. PDFs com AES (V>=4) não são suportados — nesses casos,
+// envie o comprovante como imagem (JPG/PNG), que sempre funciona.
+
+const PDF_PAD = [0x28, 0xBF, 0x4E, 0x5E, 0x4E, 0x75, 0x8A, 0x41, 0x64, 0x00, 0x4E, 0x56, 0xFF, 0xFA, 0x01, 0x08,
+  0x2E, 0x2E, 0x00, 0xB6, 0xD0, 0x68, 0x3E, 0x80, 0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A];
+
+function pdfMd5_(arr) {
+  const signed = arr.map((x) => ((x & 0xff) > 127 ? (x & 0xff) - 256 : (x & 0xff)));
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, signed).map((x) => x & 0xff);
+}
+
+function pdfRc4_(key, data) {
+  const S = []; for (let i = 0; i < 256; i++) S[i] = i;
+  let j = 0;
+  for (let i = 0; i < 256; i++) { j = (j + S[i] + key[i % key.length]) & 255; const t = S[i]; S[i] = S[j]; S[j] = t; }
+  const out = new Array(data.length); let a = 0; let b = 0;
+  for (let k = 0; k < data.length; k++) { a = (a + 1) & 255; b = (b + S[a]) & 255; const t = S[a]; S[a] = S[b]; S[b] = t; out[k] = data[k] ^ S[(S[a] + S[b]) & 255]; }
+  return out;
+}
+
+function pdfLatin1_(b) {
+  let s = '';
+  for (let i = 0; i < b.length; i += 8192) s += String.fromCharCode.apply(null, b.slice(i, i + 8192));
+  return s;
+}
+
+function pdfParseStr_(b, i) { // i aponta para '(' (literal) ou '<' (hex)
+  if (b[i] === 0x3C) {
+    let j = i + 1; let hex = '';
+    while (b[j] !== 0x3E) { const c = String.fromCharCode(b[j]); if (/[0-9a-fA-F]/.test(c)) hex += c; j++; }
+    if (hex.length % 2) hex += '0';
+    const out = []; for (let k = 0; k < hex.length; k += 2) out.push(parseInt(hex.substr(k, 2), 16));
+    return out;
+  }
+  let j = i + 1; let depth = 1; const out = []; const map = { 110: 10, 114: 13, 116: 9, 98: 8, 102: 12, 40: 40, 41: 41, 92: 92 };
+  while (depth > 0) {
+    const c = b[j];
+    if (c === 0x5C) {
+      const n = b[j + 1];
+      if (n >= 0x30 && n <= 0x37) { let oct = ''; let k = j + 1; while (k < j + 4 && b[k] >= 0x30 && b[k] <= 0x37) { oct += String.fromCharCode(b[k]); k++; } out.push(parseInt(oct, 8) & 255); j = k; }
+      else if (map[n] !== undefined) { out.push(map[n]); j += 2; }
+      else { out.push(n); j += 2; }
+    } else if (c === 0x28) { depth++; out.push(c); j++; }
+    else if (c === 0x29) { depth--; if (depth > 0) out.push(c); j++; }
+    else { out.push(c); j++; }
+  }
+  return out;
+}
+
+// Recebe bytes (assinados ou não) do PDF; devolve array de bytes decifrado, ou os
+// bytes originais se não estiver criptografado. Lança erro se for AES (não suportado).
+function pdfDescriptografar_(bytes) {
+  const b = bytes.map((x) => x & 0xff);
+  const txt = pdfLatin1_(b);
+  const encRef = /\/Encrypt\s+(\d+)\s+(\d+)\s+R/.exec(txt);
+  if (!encRef) return bytes; // não criptografado
+  const encNum = encRef[1];
+  const em = new RegExp(`${encNum}\\s+0\\s+obj`).exec(txt);
+  if (!em) return bytes;
+  const encStart = em.index; const encEnd = txt.indexOf('endobj', encStart);
+  const er = txt.slice(encStart, encEnd);
+  const V = +(/\/V\s+(\d+)/.exec(er) || [0, 0])[1];
+  const R = +(/\/R\s+(\d+)/.exec(er) || [0, 0])[1];
+  const Length = +((/\/Length\s+(\d+)/.exec(er) || [0, 40])[1]);
+  const P = parseInt((/\/P\s+(-?\d+)/.exec(er) || [0, 0])[1], 10);
+  if (V >= 4 || R >= 5) throw new Error('PDF criptografado com AES (não suportado — envie como imagem)');
+
+  const grab = (name) => { const idx = er.indexOf(name); let k = encStart + idx + name.length; while (b[k] === 0x20 || b[k] === 0x0A || b[k] === 0x0D) k++; return pdfParseStr_(b, k); };
+  const O = grab('/O');
+  const idm = /\/ID\s*\[\s*/.exec(txt); let ID0 = [];
+  if (idm) ID0 = pdfParseStr_(b, idm.index + idm[0].length);
+
+  const n = Length / 8;
+  const pbuf = [P & 255, (P >> 8) & 255, (P >> 16) & 255, (P >> 24) & 255];
+  let key = pdfMd5_(PDF_PAD.concat(O.slice(0, 32), pbuf, ID0));
+  if (R >= 3) { for (let i = 0; i < 50; i++) key = pdfMd5_(key.slice(0, n)); }
+  key = key.slice(0, n);
+
+  const objRe = /(\d+)\s+(\d+)\s+obj/g; let m; let count = 0;
+  while ((m = objRe.exec(txt))) {
+    const num = +m[1]; const gen = +m[2]; const after = m.index + m[0].length;
+    const si = txt.indexOf('stream', after); const oi = txt.indexOf('endobj', after);
+    if (si < 0 || (oi >= 0 && si > oi)) continue;
+    const dict = txt.slice(after, si);
+    if (/\/Type\s*\/XRef/.test(dict) || num === +encNum) continue; // xref/encrypt não se decifram
+    let ds = si + 6; if (b[ds] === 0x0D) ds++; if (b[ds] === 0x0A) ds++;
+    const de = txt.indexOf('endstream', ds); let dataEnd = de; if (b[dataEnd - 1] === 0x0A) dataEnd--; if (b[dataEnd - 1] === 0x0D) dataEnd--;
+    const objkey = pdfMd5_(key.concat([num & 255, (num >> 8) & 255, (num >> 16) & 255, gen & 255, (gen >> 8) & 255])).slice(0, Math.min(n + 5, 16));
+    const dec = pdfRc4_(objkey, b.slice(ds, dataEnd));
+    for (let k = 0; k < dec.length; k++) b[ds + k] = dec[k];
+    count++;
+  }
+  const et = `/Encrypt ${encNum} 0 R`; const ti = txt.indexOf(et);
+  if (ti >= 0) for (let k = 0; k < et.length; k++) b[ti + k] = 0x20; // neutraliza /Encrypt (mesmo tamanho)
+  return b;
 }
