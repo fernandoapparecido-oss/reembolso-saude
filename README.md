@@ -46,6 +46,7 @@ js/triage.js          Tela TRIAGEM (preview + categorização)
 js/lotes.js           Tela LOTES (status, prazos, registro de envio)
 js/app.js             Orquestrador (login, roteamento)
 apps-script/aviso-prazo.gs   (opcional) e-mail de prazo, sem o app aberto
+apps-script/inbox-email.gs   (opcional) anexos de e-mail entram sozinhos no Inbox
 ```
 
 ### Modelo de dados (planilha)
@@ -159,6 +160,18 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
 3. **Lotes** → veja `Aguardando/Completo/Enviado/Reembolsado`, filtre por
    *Faltando docs / Prontos p/ enviar / Prazo desta semana*, e **Registrar envio**
    (data de postagem, rastreio, valor) quando postar nos Correios.
+
+## Entrada por e-mail (opcional, recomendado)
+Para não usar o Picker a cada arquivo: mande os documentos por e-mail para a conta do app
+(ex.: `reembolsofamilia@gmail.com`) e deixe o script **`apps-script/inbox-email.gs`** salvar
+os anexos PDF numa pasta do Drive e registrá-los na aba `Inbox` — eles **aparecem sozinhos**
+no app. O Picker continua para o que chega por WhatsApp/scan. Instalação e detalhes de
+compartilhamento (para o preview funcionar em outras contas) estão no cabeçalho do próprio
+script.
+
+> Funciona sem `drive.file` em cada anexo porque o app não chama a API do Drive no arquivo:
+> ele lê a aba `Inbox` e mostra o preview por `iframe`, que usa a sessão do navegador. Basta a
+> conta logada **enxergar** o arquivo (dona ou via compartilhamento da pasta).
 
 ## Multiusuário
 Qualquer pessoa **em Test users** (passo 4.5) e com a planilha **compartilhada** (passo 7.2)
