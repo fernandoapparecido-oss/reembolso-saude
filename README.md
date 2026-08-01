@@ -9,8 +9,17 @@ Google**. Login com a conta Google de cada pessoa (multiusuário).
   Presença marca os três slots do lote de uma vez — sem dividir o PDF.
 - **Zero digitação livre** na triagem: prestador (lista), mês (seletor) e conteúdo
   (multi-seleção).
-- Escopo OAuth mínimo: **`drive.file`** (o app só vê o que ele criou ou o que você
-  apontou a ele pelo Picker) + `spreadsheets`.
+- Escopo OAuth **só não-sensível**: **`openid email profile`** (saber/reusar a conta)
+  **+ `drive.file`** (o app só vê o que ele criou ou o que você apontou pelo Picker; a
+  API do Sheets aceita este escopo). **Sem `spreadsheets`** → sem aviso "app não
+  verificado".
+
+## 📚 Documentação
+- **[docs/DECISOES.md](docs/DECISOES.md)** — todas as decisões de arquitetura e o
+  **porquê** (com alternativas descartadas, armadilhas técnicas e a evolução do projeto).
+- **[docs/OPERACAO.md](docs/OPERACAO.md)** — runbook: produção, onboarding de usuários,
+  Apps Scripts/gatilhos, fluxo diário e **solução de problemas**.
+- Este **README** — setup passo a passo (console/GUI) e modelo de dados.
 
 ---
 
@@ -119,12 +128,12 @@ Em **APIs & Services → Library**, habilite (Enable) as três:
 1. **APIs & Services → OAuth consent screen**.
 2. **User type: External** → Create.
 3. Preencha nome do app, e-mail de suporte e de contato.
-4. **Scopes**: adicione exatamente
-   - `.../auth/drive.file`
-   - `.../auth/spreadsheets`
-   (**não** adicione o `drive` completo.)
-5. **Test users**: adicione o e-mail de **cada pessoa** que vai usar o app (enquanto
-   ficar em modo *Testing*). Isso basta — não precisa publicar/verificar para uso próprio.
+4. **Scopes**: os que o app usa são **não-sensíveis** — `openid`, `email`, `profile`
+   e `.../auth/drive.file`. Os três primeiros costumam já estar disponíveis; **não**
+   adicione `spreadsheets` nem `drive` completo (viram sensível → aviso/verificação).
+5. **Publicar:** clique **PUBLICAR APLICATIVO** (produção). Com só escopos
+   não-sensíveis **não precisa de verificação** e qualquer conta autorizada entra.
+   (Alternativa: deixar em *Testing* e adicionar cada pessoa em **Test users**.)
 
 ### 5. OAuth Client ID (Web application)
 1. **APIs & Services → Credentials → Create Credentials → OAuth client ID**.
@@ -221,9 +230,9 @@ WhatsApp/scan (também aceitando PDF/JPG/PNG).
 > conta logada **enxergar** o arquivo (dona ou via compartilhamento da pasta).
 
 ## Multiusuário
-Qualquer pessoa **em Test users** (passo 4.5) e com a planilha **compartilhada** (passo 7.2)
-faz login com a **própria conta Google**, conecta a planilha uma vez e passa a ver/gravar os
-mesmos lotes. Não é preciso ser o dono do projeto.
+Com o app **publicado** (produção), qualquer pessoa com a planilha e as pastas
+**compartilhadas** (passo 7) faz login com a **própria conta Google**, aponta a planilha
+uma vez (Picker) e passa a ver/gravar os mesmos lotes. Não é preciso ser o dono do projeto.
 
 ## Privacidade
 
@@ -235,18 +244,18 @@ enviados ao navegador — vale para qualquer app desse tipo, público ou privado
 O que realmente protege os dados (nada disso está no repositório):
 1. **Origem** restrita no OAuth Client (passo 5) — o `client_id` só funciona no seu domínio.
 2. **Referrer + API** restritos na API key (passo 6).
-3. **Test users** (passo 4.5): mantendo o app em *Testing*, só as contas que você adicionar
-   conseguem concluir o login. Um estranho com o `client_id` **não entra**.
-4. **Login Google + compartilhamento + escopo `drive.file`**: os dados (com codinome) vivem
-   **só no Drive/Sheets**, nunca no repo.
+3. **Compartilhamento + escopo `drive.file`:** o acesso aos dados exige que a **planilha e as
+   pastas estejam compartilhadas** com a conta. Um estranho que faça login **não vê nada**
+   (nada foi compartilhado com ele; o `drive.file` só alcança o que ele mesmo apontou).
+4. **Dados só no Drive/Sheets** (com codinome), **nunca no repo**.
 
 Boas práticas neste app:
 - **Codinome** no lugar do nome do paciente — e os **prestadores ficam na aba `Config` da
   planilha**, não no código, para não aparecerem no repositório público.
 - O app **não loga** token nem dados sensíveis. O token vive **só em memória** (`js/auth.js`);
   o ID da planilha (não sensível) fica em `localStorage` (`js/store.js`), **não** no repo.
-- Mantenha o app em **Testing** com a lista de **Test users** enxuta (mínimo de pessoas) e
-  **2FA** na conta.
+- **Compartilhe com o mínimo de pessoas** (a planilha e as pastas são a fronteira de acesso)
+  e mantenha **2FA** na conta.
 
 ## Cota
 Volume baixo (dezenas de chamadas/sessão). As chamadas ao Sheets/Drive tratam **403/429**
