@@ -1,12 +1,20 @@
-// Cache em memória da lista de prestadores (lida da aba Config da planilha).
-// Evita reler a planilha a cada abertura da triagem.
-import { lerPrestadores } from './sheets.js';
+// Cache em memória dos PERFIS de prestador (lidos da aba Config da planilha):
+// { prestador, tipos:[ids exigidos], especialidades:[...] }.
+import { lerPerfis } from './sheets.js';
 
 let cache = null;
 
-export async function getPrestadores(forcar = false) {
-  if (!cache || forcar) cache = await lerPrestadores();
+export async function getPerfis(forcar = false) {
+  if (!cache || forcar) cache = await lerPerfis();
   return cache;
+}
+
+export async function getPrestadores(forcar = false) {
+  return (await getPerfis(forcar)).map((p) => p.prestador);
+}
+
+export async function getPerfil(prestador) {
+  return (await getPerfis()).find((p) => p.prestador === prestador) || null;
 }
 
 export function invalidarPrestadores() { cache = null; }

@@ -43,6 +43,11 @@ export const CONFIG = {
     { id: 'Presenca',    label: 'Presença' },
   ],
 
+  // Tipos que são UM POR ESPECIALIDADE (terapia) quando o prestador tem
+  // especialidades na Config. Os demais (NF, Laudo, Comprovante) são
+  // compartilhados: um para o lote inteiro.
+  PER_ESPECIALIDADE: ['Relatorio', 'Presenca'],
+
   // Sugestão de prazo: fim do mês de referência + N dias (você edita por lote).
   PRAZO_DIAS_APOS_MES: 90,
 

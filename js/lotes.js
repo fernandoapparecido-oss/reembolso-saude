@@ -1,16 +1,21 @@
-// Tela LOTES: painel por status, prazos e registro de envio.
+// Tela LOTES: completude dirigida pela Config (compartilhados + por especialidade),
+// prazos e registro de envio.
 import { CONFIG } from './config.js';
 import { el, clear, toast, fmtBRL } from './ui.js';
 import {
-  COL, STATUS, idFromLink, fileViewLink, diasAte, hojeISO,
+  COL, STATUS, TIPOS_IDS, parseSlot, idFromLink, fileViewLink, diasAte, hojeISO,
 } from './model.js';
 import { lerLotes, atualizarLote } from './sheets.js';
+import { getPerfis } from './catalog.js';
+
+const labelDe = (id) => (CONFIG.TIPOS.find((t) => t.id === id) || { label: id }).label;
+const enviadoOuPago = (st) => st === STATUS.ENVIADO || st === STATUS.REEMBOLSADO;
 
 const FILTROS = {
   todos: { label: 'Todos', fn: () => true },
-  faltando: { label: 'Faltando docs', fn: (l) => l.status === STATUS.AGUARDANDO },
-  prontos: { label: 'Prontos p/ enviar', fn: (l) => l.status === STATUS.COMPLETO },
-  semana: { label: 'Prazo desta semana', fn: (l) => { const d = diasAte(l.data_limite); return d != null && d <= CONFIG.ALERTA_PRAZO_DIAS && l.status !== STATUS.ENVIADO && l.status !== STATUS.REEMBOLSADO; } },
+  faltando: { label: 'Faltando docs', fn: (a) => !a.completo && !enviadoOuPago(a.statusReal) },
+  prontos: { label: 'Prontos p/ enviar', fn: (a) => a.completo && !enviadoOuPago(a.statusReal) },
+  semana: { label: 'Prazo desta semana', fn: (a) => { const d = diasAte(a.data_limite); return d != null && d <= CONFIG.ALERTA_PRAZO_DIAS && !enviadoOuPago(a.statusReal); } },
 };
 
 let filtroAtual = 'todos';
@@ -22,10 +27,7 @@ export async function renderLotes() {
 
   const barra = el('div', { class: 'filtros' });
   for (const [k, f] of Object.entries(FILTROS)) {
-    barra.appendChild(el('button', {
-      class: `filtro ${filtroAtual === k ? 'on' : ''}`,
-      onclick: () => { filtroAtual = k; renderLotes(); },
-    }, f.label));
+    barra.appendChild(el('button', { class: `filtro ${filtroAtual === k ? 'on' : ''}`, onclick: () => { filtroAtual = k; renderLotes(); } }, f.label));
   }
   root.appendChild(barra);
 
@@ -34,156 +36,173 @@ export async function renderLotes() {
   lista.appendChild(el('p', { class: 'muted', text: 'Carregando…' }));
 
   try {
-    const brutos = await lerLotes();
-    const lotes = brutos.map((b) => ({
-      linha: b.linha,
-      prestador: b.cols[COL.prestador] || '',
-      mes: b.cols[COL.mes] || '',
-      slots: {
-        NF: b.cols[COL.NF] || '', Laudo: b.cols[COL.Laudo] || '', Comprovante: b.cols[COL.Comprovante] || '',
-        Relatorio: b.cols[COL.Relatorio] || '', Presenca: b.cols[COL.Presenca] || '',
-      },
-      data_limite: b.cols[COL.data_limite] || '',
-      status: b.cols[COL.status] || STATUS.AGUARDANDO,
-      data_postagem: b.cols[COL.data_postagem] || '',
-      rastreio: b.cols[COL.rastreio] || '',
-      valor: b.cols[COL.valor] || '',
-    }));
+    const [brutos, perfis] = await Promise.all([lerLotes(), getPerfis()]);
+    const perfilDe = (nome) => perfis.find((p) => p.prestador === nome) || null;
+
+    const analises = brutos.map((b) => analisar(b, perfilDe(b.cols[COL.prestador])));
 
     clear(lista);
-    const filtrados = lotes.filter(FILTROS[filtroAtual].fn);
+    const filtrados = analises.filter(FILTROS[filtroAtual].fn);
     if (!filtrados.length) {
       lista.appendChild(el('div', { class: 'vazio' }, [el('p', { text: 'Nenhum lote neste filtro.' })]));
       return;
     }
-    for (const l of filtrados) lista.appendChild(cardLote(l));
+    for (const a of filtrados) lista.appendChild(cardLote(a));
   } catch (e) {
     clear(lista);
-    if ((e.message || '').includes('SEM_PLANILHA')) {
-      lista.appendChild(el('div', { class: 'vazio' }, [el('p', { text: '🔌 Conecte a planilha no topo primeiro.' })]));
-    } else {
-      lista.appendChild(el('div', { class: 'vazio' }, [el('p', { text: 'Erro ao carregar.' }), el('p', { class: 'muted', text: e.message })]));
-    }
+    if ((e.message || '').includes('SEM_PLANILHA')) lista.appendChild(el('div', { class: 'vazio' }, [el('p', { text: '🔌 Conecte a planilha no topo primeiro.' })]));
+    else lista.appendChild(el('div', { class: 'vazio' }, [el('p', { text: 'Erro ao carregar.' }), el('p', { class: 'muted', text: e.message })]));
   }
 }
 
-function cardLote(l) {
-  const d = diasAte(l.data_limite);
-  const enviadoOuPago = l.status === STATUS.ENVIADO || l.status === STATUS.REEMBOLSADO;
-  let prazoCls = 'prazo';
-  if (!enviadoOuPago && d != null) {
-    if (d < 0) prazoCls += ' prazo-vencido';
-    else if (d <= CONFIG.ALERTA_PRAZO_DIAS) prazoCls += ' prazo-proximo';
+// Analisa um lote contra o perfil do prestador: o que é compartilhado, a matriz
+// por especialidade, o que falta e se está completo.
+function analisar(b, perfil) {
+  const cols = b.cols;
+  const slot = (t) => parseSlot(cols[COL[t]] || '');
+  const tipos = perfil ? perfil.tipos : TIPOS_IDS;
+  const esps = perfil ? perfil.especialidades : [];
+  const perEsp = tipos.filter((t) => CONFIG.PER_ESPECIALIDADE.includes(t));
+  const compartilhados = tipos.filter((t) => !CONFIG.PER_ESPECIALIDADE.includes(t));
+
+  const faltando = [];
+  const linhaShared = [];
+  for (const t of compartilhados) {
+    const entradas = slot(t);
+    const ok = entradas.length > 0;
+    if (!ok) faltando.push(labelDe(t));
+    linhaShared.push({ tipo: t, ok, links: entradas.map((e) => e.link) });
   }
 
-  const card = el('div', { class: `card card-lote status-${l.status.toLowerCase()}` });
+  const matriz = [];
+  if (esps.length) {
+    for (const esp of esps) {
+      const itens = perEsp.map((t) => {
+        const entrada = slot(t).find((e) => e.label === esp);
+        const ok = !!entrada;
+        if (!ok) faltando.push(`${esp}/${labelDe(t)}`);
+        return { tipo: t, ok, link: entrada ? entrada.link : '' };
+      });
+      matriz.push({ esp, itens });
+    }
+  } else {
+    for (const t of perEsp) {
+      const entradas = slot(t);
+      const ok = entradas.length > 0;
+      if (!ok) faltando.push(labelDe(t));
+      linhaShared.push({ tipo: t, ok, links: entradas.map((e) => e.link) });
+    }
+  }
+
+  const completo = faltando.length === 0;
+  const statusReal = cols[COL.status] || STATUS.AGUARDANDO;
+  const statusMostra = enviadoOuPago(statusReal) ? statusReal : (completo ? STATUS.COMPLETO : STATUS.AGUARDANDO);
+
+  return {
+    linha: b.linha,
+    prestador: cols[COL.prestador] || '', mes: cols[COL.mes] || '',
+    data_limite: cols[COL.data_limite] || '',
+    data_postagem: cols[COL.data_postagem] || '', rastreio: cols[COL.rastreio] || '', valor: cols[COL.valor] || '',
+    statusReal, statusMostra, completo, faltando, linhaShared, matriz,
+  };
+}
+
+function cardLote(a) {
+  const d = diasAte(a.data_limite);
+  const enviado = enviadoOuPago(a.statusReal);
+  let prazoCls = 'prazo';
+  if (!enviado && d != null) { if (d < 0) prazoCls += ' prazo-vencido'; else if (d <= CONFIG.ALERTA_PRAZO_DIAS) prazoCls += ' prazo-proximo'; }
+
+  const card = el('div', { class: `card card-lote status-${a.statusMostra.toLowerCase()}` });
 
   card.appendChild(el('div', { class: 'lote-top' }, [
-    el('div', {}, [
-      el('strong', { text: l.prestador }),
-      el('span', { class: 'muted', text: ` · ${l.mes}` }),
-    ]),
-    el('span', { class: `pill pill-${l.status.toLowerCase()}`, text: l.status }),
+    el('div', {}, [el('strong', { text: a.prestador }), el('span', { class: 'muted', text: ` · ${a.mes}` })]),
+    el('span', { class: `pill pill-${a.statusMostra.toLowerCase()}`, text: a.statusMostra }),
   ]));
 
-  // Slots (tipos), cada um com link se preenchido.
-  const slots = el('div', { class: 'slots' });
-  for (const t of CONFIG.TIPOS) {
-    const val = l.slots[t.id] || '';
-    const on = !!val.trim();
-    const item = el('div', { class: `slot ${on ? 'slot-on' : 'slot-off'}` }, [
-      el('span', { class: 'slot-ico', text: on ? '✓' : '·' }),
-      el('span', { text: t.label }),
-    ]);
-    if (on) {
-      // Vários links possíveis, separados por " | ".
-      val.split('|').map((s) => s.trim()).filter(Boolean).forEach((link, i) => {
-        item.appendChild(el('a', {
-          class: 'slot-link', href: fileViewLink(idFromLink(link)), target: '_blank', rel: 'noopener',
-          title: 'Abrir arquivo de origem', text: i === 0 ? ' ↗' : ` ↗${i + 1}`,
-        }));
-      });
-    }
-    slots.appendChild(item);
+  // Resumo de completude
+  card.appendChild(a.completo
+    ? el('div', { class: 'resumo-ok', text: '✓ Tudo recebido' })
+    : el('div', { class: 'resumo-falta' }, [el('span', { text: 'Faltando: ' }), el('span', { text: a.faltando.join(', ') })]));
+
+  // Compartilhados
+  if (a.linhaShared.length) {
+    const linha = el('div', { class: 'slots' });
+    for (const s of a.linhaShared) linha.appendChild(slotChip(labelDe(s.tipo), s.ok, s.links));
+    card.appendChild(linha);
   }
-  card.appendChild(slots);
 
-  // Prazo
+  // Matriz por especialidade
+  for (const row of a.matriz) {
+    const linha = el('div', { class: 'esp-linha' }, [el('span', { class: 'esp-nome', text: row.esp }), el('span', { text: ':' })]);
+    for (const it of row.itens) linha.appendChild(slotChip(labelDe(it.tipo), it.ok, it.link ? [it.link] : []));
+    card.appendChild(linha);
+  }
+
   card.appendChild(el('div', { class: prazoCls }, [
-    el('span', { text: '⏱ Prazo: ' }),
-    el('span', { text: l.data_limite || '—' }),
-    d != null && !enviadoOuPago ? el('span', { class: 'prazo-dias', text: d < 0 ? `  (vencido há ${-d}d)` : `  (faltam ${d}d)` }) : null,
+    el('span', { text: '⏱ Prazo: ' }), el('span', { text: a.data_limite || '—' }),
+    d != null && !enviado ? el('span', { class: 'prazo-dias', text: d < 0 ? `  (vencido há ${-d}d)` : `  (faltam ${d}d)` }) : null,
   ]));
 
-  card.appendChild(acoes(l));
+  card.appendChild(acoes(a));
   return card;
 }
 
-function acoes(l) {
-  const box = el('div', { class: 'acoes' });
+function slotChip(label, ok, links) {
+  const chip = el('span', { class: `slot ${ok ? 'slot-on' : 'slot-off'}` }, [
+    el('span', { class: 'slot-ico', text: ok ? '✓' : '·' }), el('span', { text: label }),
+  ]);
+  (links || []).forEach((link, i) => chip.appendChild(el('a', {
+    class: 'slot-link', href: fileViewLink(idFromLink(link)), target: '_blank', rel: 'noopener',
+    title: 'Abrir arquivo', text: i === 0 ? ' ↗' : ` ↗${i + 1}`,
+  })));
+  return chip;
+}
 
-  if (l.status === STATUS.AGUARDANDO) {
-    box.appendChild(btn('Marcar Completo', 'ghost', async () => save(l, { status: STATUS.COMPLETO })));
-  }
-  if (l.status === STATUS.AGUARDANDO || l.status === STATUS.COMPLETO) {
-    box.appendChild(btn('Registrar envio', 'primary', () => abrirEnvio(l, box)));
-  }
-  if (l.status === STATUS.ENVIADO) {
+function acoes(a) {
+  const box = el('div', { class: 'acoes' });
+  if (!enviadoOuPago(a.statusReal)) {
+    box.appendChild(btn('Registrar envio', 'primary', () => abrirEnvio(a, box)));
+  } else if (a.statusReal === STATUS.ENVIADO) {
     box.appendChild(el('div', { class: 'envio-info muted' }, [
-      el('span', { text: `📮 ${l.data_postagem || '—'}` }),
-      l.rastreio ? el('span', { text: ` · ${l.rastreio}` }) : null,
-      l.valor ? el('span', { text: ` · ${fmtBRL(l.valor)}` }) : null,
+      el('span', { text: `📮 ${a.data_postagem || '—'}` }),
+      a.rastreio ? el('span', { text: ` · ${a.rastreio}` }) : null,
+      a.valor ? el('span', { text: ` · ${fmtBRL(a.valor)}` }) : null,
     ]));
-    box.appendChild(btn('Marcar Reembolsado', 'ok', async () => save(l, { status: STATUS.REEMBOLSADO })));
-    box.appendChild(btn('Editar envio', 'ghost', () => abrirEnvio(l, box)));
-  }
-  if (l.status === STATUS.REEMBOLSADO) {
-    box.appendChild(el('div', { class: 'envio-info muted', text: `✅ ${l.data_postagem || ''} ${l.rastreio || ''} ${l.valor ? '· ' + fmtBRL(l.valor) : ''}` }));
+    box.appendChild(btn('Marcar Reembolsado', 'ok', () => save(a, { status: STATUS.REEMBOLSADO })));
+    box.appendChild(btn('Editar envio', 'ghost', () => abrirEnvio(a, box)));
+  } else {
+    box.appendChild(el('div', { class: 'envio-info muted', text: `✅ ${a.data_postagem || ''} ${a.rastreio || ''} ${a.valor ? '· ' + fmtBRL(a.valor) : ''}` }));
   }
   return box;
 }
 
-function abrirEnvio(l, box) {
+function abrirEnvio(a, box) {
   const painel = el('form', { class: 'envio-form' });
-  const dPost = el('input', { type: 'date', value: l.data_postagem || hojeISO() });
-  const rast = el('input', { type: 'text', placeholder: 'Código de rastreio', value: l.rastreio || '' });
-  const val = el('input', { type: 'text', inputmode: 'decimal', placeholder: 'Valor (R$)', value: l.valor || '' });
-  const prazo = el('input', { type: 'date', value: l.data_limite || '' });
+  const dPost = el('input', { type: 'date', value: a.data_postagem || hojeISO() });
+  const rast = el('input', { type: 'text', placeholder: 'Código de rastreio', value: a.rastreio || '' });
+  const val = el('input', { type: 'text', inputmode: 'decimal', placeholder: 'Valor (R$)', value: a.valor || '' });
+  const prazo = el('input', { type: 'date', value: a.data_limite || '' });
 
   painel.appendChild(campo('Data de postagem', dPost));
   painel.appendChild(campo('Rastreio (Correios)', rast));
   painel.appendChild(campo('Valor', val));
   painel.appendChild(campo('Prazo (editável)', prazo));
 
-  const salvar = btn('Salvar envio', 'primary', async (ev) => {
+  if (!a.completo) painel.appendChild(el('div', { class: 'resumo-falta', text: `Atenção: ainda faltando ${a.faltando.join(', ')}` }));
+
+  painel.appendChild(btn('Salvar envio', 'primary', async (ev) => {
     ev.preventDefault();
-    await save(l, {
-      status: STATUS.ENVIADO,
-      data_postagem: dPost.value,
-      rastreio: rast.value.trim(),
-      valor: val.value.trim(),
-      data_limite: prazo.value,
-    });
-  });
-  painel.appendChild(salvar);
+    await save(a, { status: STATUS.ENVIADO, data_postagem: dPost.value, rastreio: rast.value.trim(), valor: val.value.trim(), data_limite: prazo.value });
+  }));
   painel.appendChild(btn('Cancelar', 'ghost', (ev) => { ev.preventDefault(); painel.remove(); }));
   box.appendChild(painel);
 }
 
-async function save(l, patch) {
-  try {
-    await atualizarLote(l.linha, patch);
-    toast('Lote atualizado.', 'ok');
-    renderLotes();
-  } catch (e) {
-    toast('Falha ao salvar.', 'err');
-    console.warn(e.message);
-  }
+async function save(a, patch) {
+  try { await atualizarLote(a.linha, patch); toast('Lote atualizado.', 'ok'); renderLotes(); }
+  catch (e) { toast('Falha ao salvar.', 'err'); console.warn(e.message); }
 }
 
-function campo(label, input) {
-  return el('label', { class: 'campo campo-inline' }, [el('span', { text: label }), input]);
-}
-function btn(txt, tipo, onclick) {
-  return el('button', { class: `btn btn-${tipo}`, onclick }, txt);
-}
+function campo(label, input) { return el('label', { class: 'campo campo-inline' }, [el('span', { text: label }), input]); }
+function btn(txt, tipo, onclick) { return el('button', { class: `btn btn-${tipo}`, onclick }, txt); }

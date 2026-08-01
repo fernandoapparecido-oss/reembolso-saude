@@ -59,6 +59,31 @@ export function idFromLink(link) {
   return m ? m[1] : link;
 }
 
+// ---- Slots com rótulo de especialidade -----------------------------------
+// Uma célula guarda entradas separadas por " | ". Cada entrada pode ser um link
+// simples (compartilhado) ou rotulada por especialidade: "Fono::<link>".
+export const SLOT_SEP = ' | ';
+
+export function parseSlot(cell) {
+  return String(cell || '').split('|').map((s) => s.trim()).filter(Boolean).map((entry) => {
+    const i = entry.indexOf('::');
+    const label = i > 0 ? entry.slice(0, i).trim() : '';
+    const link = i > 0 ? entry.slice(i + 2).trim() : entry;
+    return { label, link, id: idFromLink(link) };
+  });
+}
+
+export function buildSlot(entries) {
+  return entries.map((e) => (e.label ? `${e.label}::${e.link}` : e.link)).join(SLOT_SEP);
+}
+
+// Normaliza um texto de tipo (aceita rótulo/acentos) para o id canônico ou null.
+export function tipoCanonico(txt) {
+  const s = String(txt || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const map = { nf: 'NF', laudo: 'Laudo', comprovante: 'Comprovante', relatorio: 'Relatorio', presenca: 'Presenca' };
+  return map[s] || null;
+}
+
 // Lista de meses (YYYY-MM) dos últimos N meses, com rótulo pt-BR.
 export function mesesRecentes(n = 18) {
   const out = [];

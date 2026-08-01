@@ -133,6 +133,11 @@ main { max-width: 1000px; margin: 0 auto; padding: 14px; }
 .pill-enviado { color: var(--muted); }
 .pill-reembolsado { color: var(--ok); border-color: var(--ok); }
 
+.resumo-ok { font-size: 14px; color: var(--ok); font-weight: 600; }
+.resumo-falta { font-size: 14px; color: var(--warn); }
+.esp-linha { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.esp-nome { font-weight: 700; font-size: 13px; min-width: 44px; }
+
 .slots { display: flex; flex-wrap: wrap; gap: 8px; }
 .slot {
   display: inline-flex; align-items: center; gap: 6px; font-size: 14px;

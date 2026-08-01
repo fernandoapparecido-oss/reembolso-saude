@@ -2,9 +2,11 @@
 // Trata 403/429 com backoff exponencial (cota/limite).
 import { getToken, ensureToken } from './auth.js';
 import { store } from './store.js';
+import { CONFIG } from './config.js';
 import {
   SHEET_LOTES, SHEET_INBOX, SHEET_CONFIG, LOTES_HEADER, INBOX_HEADER,
   COL, INBOX_COL, TIPOS_IDS, colLetter, idFromLink,
+  parseSlot, buildSlot, tipoCanonico,
 } from './model.js';
 
 const BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -87,18 +89,35 @@ export async function ensureSheets() {
   await updateRange(`${SHEET_LOTES}!A1:${colLetter(LOTES_HEADER.length - 1)}1`, [LOTES_HEADER]);
   await updateRange(`${SHEET_INBOX}!A1:${colLetter(INBOX_HEADER.length - 1)}1`, [INBOX_HEADER]);
 
-  // Config: semeia SÓ na criação, para não apagar a lista que você mantém lá.
+  // Config: cabeçalho de 3 colunas (não apaga dados). Exemplos só na criação.
+  await updateRange(`${SHEET_CONFIG}!A1:C1`, [['prestador', 'tipos', 'especialidades']]);
   if (criarConfig) {
-    await updateRange(`${SHEET_CONFIG}!A1:A4`, [
-      ['prestador'], ['Clínica A'], ['Terapeuta B'], ['Fono C'],
+    await updateRange(`${SHEET_CONFIG}!A2:C4`, [
+      ['Clínica A', 'NF, Comprovante, Relatorio, Presenca', 'Fono, TO, ABA'],
+      ['Terapeuta B', 'NF, Laudo, Comprovante, Relatorio, Presenca', ''],
+      ['Consultório Médico C', 'NF, Comprovante', ''],
     ]);
   }
 }
 
-// Lê a lista de prestadores da aba Config (coluna A, ignorando o cabeçalho).
+// Lê os PERFIS de prestador da aba Config:
+//   A = prestador | B = tipos exigidos (csv) | C = especialidades (csv)
+// tipos vazio  -> exige todos os 5 (fornecedor único). especialidades vazio -> sem terapias.
+export async function lerPerfis() {
+  const rows = await getValues(`${SHEET_CONFIG}!A2:C`);
+  return rows.map((r) => {
+    const tipos = String(r[1] || '').split(',').map(tipoCanonico).filter(Boolean);
+    return {
+      prestador: (r[0] || '').trim(),
+      tipos: tipos.length ? tipos : TIPOS_IDS.slice(),
+      especialidades: String(r[2] || '').split(',').map((s) => s.trim()).filter(Boolean),
+    };
+  }).filter((p) => p.prestador);
+}
+
+// Compat: só os nomes de prestador.
 export async function lerPrestadores() {
-  const rows = await getValues(`${SHEET_CONFIG}!A2:A`);
-  return rows.map((r) => (r[0] || '').trim()).filter(Boolean);
+  return (await lerPerfis()).map((p) => p.prestador);
 }
 
 // ---- Inbox ----------------------------------------------------------------
@@ -148,34 +167,35 @@ function acharLote(lotes, prestador, mes) {
   return lotes.find((l) => l.cols[COL.prestador] === prestador && l.cols[COL.mes] === mes) || null;
 }
 
-// Confirma a triagem de UM arquivo: marca os tipos (slots) na linha do lote,
-// guardando o link do arquivo em cada slot. Cria o lote se não existir.
-// tiposIds: ['NF','Relatorio',...]  link: URL de view do arquivo.
-export async function confirmarTriagem({ prestador, mes, tiposIds, link, dataLimite }) {
-  const lotes = await lerLotes();
-  let alvo = acharLote(lotes, prestador, mes);
+// Acrescenta um link a um slot, com rótulo de especialidade quando aplicável,
+// sem duplicar (mesma especialidade + mesmo arquivo).
+function marcarSlot(cell, tipo, link, fileId, especialidade) {
+  const label = (CONFIG.PER_ESPECIALIDADE.includes(tipo) && especialidade) ? especialidade : '';
+  const entries = parseSlot(cell);
+  if (!entries.some((e) => e.label === label && e.id === fileId)) entries.push({ label, link, id: fileId });
+  return buildSlot(entries);
+}
 
+// Confirma a triagem de UM arquivo: marca os tipos (slots) na linha do lote,
+// guardando o link (rotulado por especialidade quando for o caso). Cria o lote se não existir.
+// tiposIds: ['NF','Relatorio',...]  especialidade: 'Fono' (só p/ tipos por-especialidade).
+export async function confirmarTriagem({ prestador, mes, tiposIds, especialidade, link, dataLimite }) {
+  const fileId = idFromLink(link);
+  const lotes = await lerLotes();
+  const alvo = acharLote(lotes, prestador, mes);
+
+  const row = alvo ? alvo.cols.slice() : new Array(LOTES_HEADER.length).fill('');
+  while (row.length < LOTES_HEADER.length) row.push('');
   if (!alvo) {
-    // Nova linha com slots vazios.
-    const row = new Array(LOTES_HEADER.length).fill('');
     row[COL.prestador] = prestador;
     row[COL.mes] = mes;
-    row[COL.data_limite] = dataLimite || '';
     row[COL.status] = 'Aguardando';
-    for (const t of tiposIds) row[COL[t]] = link;
-    await appendRow(SHEET_LOTES, row);
-    return;
   }
-
-  // Lote existente: acrescenta o link em cada slot selecionado (sem apagar o que já tinha).
-  const row = alvo.cols.slice();
-  while (row.length < LOTES_HEADER.length) row.push('');
-  for (const t of tiposIds) {
-    const atual = (row[COL[t]] || '').trim();
-    row[COL[t]] = atual ? (atual.includes(link) ? atual : `${atual} | ${link}`) : link;
-  }
+  for (const t of tiposIds) row[COL[t]] = marcarSlot(row[COL[t]], t, link, fileId, especialidade);
   if (!row[COL.data_limite] && dataLimite) row[COL.data_limite] = dataLimite;
-  await updateRange(`${SHEET_LOTES}!A${alvo.linha}:L${alvo.linha}`, [row]);
+
+  if (!alvo) await appendRow(SHEET_LOTES, row);
+  else await updateRange(`${SHEET_LOTES}!A${alvo.linha}:L${alvo.linha}`, [row]);
 }
 
 // Atualiza campos avulsos de um lote (status, postagem, prazo, valor).
@@ -191,17 +211,21 @@ export async function atualizarLote(linha, patch) {
 
 // ---- Reclassificação ------------------------------------------------------
 
-const slots = (cell) => String(cell || '').split('|').map((s) => s.trim()).filter(Boolean);
-const slotTemArquivo = (cell, fileId) => slots(cell).some((x) => idFromLink(x) === fileId);
-const removerDoSlot = (cell, fileId) => slots(cell).filter((x) => idFromLink(x) !== fileId).join(' | ');
+const slotTemArquivo = (cell, fileId) => parseSlot(cell).some((e) => e.id === fileId);
+const removerDoSlot = (cell, fileId) => buildSlot(parseSlot(cell).filter((e) => e.id !== fileId));
 
 // Descobre a classificação atual de um arquivo (procura o link nos slots dos lotes).
-// Retorna { prestador, mes, tipos:[...] } ou null.
+// Retorna { prestador, mes, tipos:[...], especialidade } ou null.
 export async function classificacaoDoArquivo(fileId) {
   const lotes = await lerLotes();
   for (const l of lotes) {
-    const tipos = TIPOS_IDS.filter((t) => slotTemArquivo(l.cols[COL[t]], fileId));
-    if (tipos.length) return { linha: l.linha, prestador: l.cols[COL.prestador], mes: l.cols[COL.mes], tipos };
+    const tipos = [];
+    let especialidade = '';
+    for (const t of TIPOS_IDS) {
+      const match = parseSlot(l.cols[COL[t]]).find((e) => e.id === fileId);
+      if (match) { tipos.push(t); if (match.label) especialidade = match.label; }
+    }
+    if (tipos.length) return { linha: l.linha, prestador: l.cols[COL.prestador], mes: l.cols[COL.mes], tipos, especialidade };
   }
   return null;
 }

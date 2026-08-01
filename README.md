@@ -64,13 +64,28 @@ Aba **`Inbox`** — arquivos apontados ao app e se já foram triados:
 
 | fileId | nome | data_adocao | status | lote |
 
-Aba **`Config`** — **lista de prestadores** (coluna A, um por linha). Fica **na planilha,
-não no código**, para não expor nomes num repositório público. Edite aqui sem precisar de
-commit; todos os usuários passam a ver a mesma lista.
+Aba **`Config`** — **perfil de cada prestador** (fica na planilha, não no código, para não
+expor nomes num repositório público). Três colunas:
+
+| prestador | tipos | especialidades |
+|-----------|-------|----------------|
+| Clínica A | `NF, Comprovante, Relatorio, Presenca` | `Fono, TO, ABA` |
+| Terapeuta B | `NF, Laudo, Comprovante, Relatorio, Presenca` | *(vazio)* |
+| Consultório Médico C | `NF, Comprovante` | *(vazio)* |
+
+- **tipos** = o que aquele prestador **exige** (subconjunto de `NF, Laudo, Comprovante,
+  Relatorio, Presenca`). Vazio = exige **todos os 5**. Aceita com/sem acento.
+- **especialidades** = terapias do prestador (ex.: `Fono, TO, ABA`). Quando preenchido,
+  **Relatório e Presença passam a ser exigidos por especialidade** (um de cada por terapia);
+  NF, Laudo e Comprovante continuam **compartilhados** (um para o lote). Vazio = sem terapias.
+
+> Assim o mesmo mecanismo cobre **médico** (só NF+Comprovante), **fornecedor único** (um de
+> cada) e **clínica multi-terapia** (NF/Comprovante compartilhados + Relatório/Presença por
+> Fono/TO/ABA). Quais tipos são “por especialidade” fica em `PER_ESPECIALIDADE` no
+> `js/config.js` (padrão: Relatório e Presença).
 
 > As três abas e os cabeçalhos são **criados automaticamente** pelo app ao conectar a
-> planilha (`ensureSheets`). Você não precisa montá-las à mão — a `Config` já vem com
-> exemplos que você substitui pelos seus prestadores (use codinome se quiser).
+> planilha (`ensureSheets`) — a `Config` já vem com os 3 exemplos acima, que você substitui.
 
 ---
 
@@ -157,6 +172,8 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
    na fila; o **badge** mostra quantos faltam categorizar.
 2. Toque num arquivo → **preview** ao lado → escolha **Prestador**, **Mês** e marque
    **todos os tipos** que existem dentro dele → **Confirmar**. Um toque marca vários slots.
+   Se o prestador tiver **especialidades** e você marcar Relatório/Presença, o app pede a
+   **especialidade** (Fono/TO/ABA) daquele arquivo. Só aparecem os tipos que o prestador exige.
 3. **Lotes** → veja `Aguardando/Completo/Enviado/Reembolsado`, filtre por
    *Faltando docs / Prontos p/ enviar / Prazo desta semana*, e **Registrar envio**
    (data de postagem, rastreio, valor) quando postar nos Correios.
