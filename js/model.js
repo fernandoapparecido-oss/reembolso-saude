@@ -4,6 +4,11 @@
 export const SHEET_LOTES = 'Lotes';
 export const SHEET_INBOX = 'Inbox';
 export const SHEET_CONFIG = 'Config'; // prestadores (coluna A) — fora do repo público
+export const SHEET_REFERENCIA = 'Referencia'; // laudos/avaliações anuais, com versões
+
+// Aba "Referencia": uma linha por VERSÃO de documento anual (laudo/avaliação).
+export const REF_HEADER = ['tipo', 'prestador', 'especialidade', 'data_emissao', 'link', 'vigente'];
+export const REF_COL = { tipo: 0, prestador: 1, especialidade: 2, data_emissao: 3, link: 4, vigente: 5 };
 
 // Ordem das colunas da aba "Lotes" (0-indexado). Também é o cabeçalho.
 export const LOTES_HEADER = [

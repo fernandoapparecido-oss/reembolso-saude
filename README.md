@@ -97,8 +97,13 @@ expor nomes num repositório público). Três colunas:
 > Fono/TO/ABA). Quais tipos são “por especialidade” fica em `PER_ESPECIALIDADE` no
 > `js/config.js` (padrão: Relatório e Presença).
 
-> As três abas e os cabeçalhos são **criados automaticamente** pelo app ao conectar a
-> planilha (`ensureSheets`) — a `Config` já vem com os 3 exemplos acima, que você substitui.
+Aba **`Referencia`** — documentos **anuais** (laudo médico e avaliação por terapia),
+**com versões**. Uma linha por versão: `tipo | prestador | especialidade | data_emissao |
+link | vigente`. O **vigente** entra sozinho na completude do lote e no PDF de impressão;
+versões antigas ficam como histórico.
+
+> As abas e os cabeçalhos são **criados automaticamente** pelo app ao conectar a
+> planilha (`ensureSheets`) — a `Config` já vem com exemplos, que você substitui.
 
 ---
 
@@ -192,6 +197,14 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
 3. **Lotes** → veja `Aguardando/Completo/Enviado/Reembolsado`, filtre por
    *Faltando docs / Prontos p/ enviar / Prazo desta semana*, e **Registrar envio**
    (data de postagem, rastreio, valor) quando postar nos Correios.
+
+### Documentos de referência (laudo/avaliação anuais)
+Laudo médico e avaliação por terapia **não são mensais** — são anuais, emitidos após
+avaliação. Na triagem, escolha o modo **Referência**, o tipo (Laudo/Avaliação), o prestador,
+a especialidade (para avaliação) e a **data de emissão**. O app guarda como **vigente** e
+arquiva a versão anterior (histórico). A aba **Referência** no app mostra o vigente + histórico
+e permite **tornar vigente** uma versão antiga. O **vigente conta na completude do lote** e
+**entra no PDF de impressão** — você não reanexa laudo todo mês.
 
 ### Imprimir o lote (PDF único)
 No card do lote, **Gerar PDF para impressão** → o app registra o pedido na planilha e o

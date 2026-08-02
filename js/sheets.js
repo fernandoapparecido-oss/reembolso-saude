@@ -4,8 +4,8 @@ import { getToken, ensureToken } from './auth.js';
 import { store } from './store.js';
 import { CONFIG } from './config.js';
 import {
-  SHEET_LOTES, SHEET_INBOX, SHEET_CONFIG, LOTES_HEADER, INBOX_HEADER,
-  COL, INBOX_COL, TIPOS_IDS, colLetter, idFromLink,
+  SHEET_LOTES, SHEET_INBOX, SHEET_CONFIG, SHEET_REFERENCIA, LOTES_HEADER, INBOX_HEADER,
+  REF_HEADER, REF_COL, COL, INBOX_COL, TIPOS_IDS, colLetter, idFromLink,
   parseSlot, buildSlot, tipoCanonico,
 } from './model.js';
 
@@ -92,19 +92,21 @@ export async function ensureSheets() {
   if (!titles.includes(SHEET_INBOX)) reqs.push({ addSheet: { properties: { title: SHEET_INBOX } } });
   const criarConfig = !titles.includes(SHEET_CONFIG);
   if (criarConfig) reqs.push({ addSheet: { properties: { title: SHEET_CONFIG } } });
+  if (!titles.includes(SHEET_REFERENCIA)) reqs.push({ addSheet: { properties: { title: SHEET_REFERENCIA } } });
   if (reqs.length) await batchUpdate(reqs);
 
   // Cabeçalhos das abas de dados (sobrescreve a linha 1 — barato e consistente).
   await updateRange(`${SHEET_LOTES}!A1:${colLetter(LOTES_HEADER.length - 1)}1`, [LOTES_HEADER]);
   await updateRange(`${SHEET_INBOX}!A1:${colLetter(INBOX_HEADER.length - 1)}1`, [INBOX_HEADER]);
+  await updateRange(`${SHEET_REFERENCIA}!A1:${colLetter(REF_HEADER.length - 1)}1`, [REF_HEADER]);
 
   // Config: cabeçalho de 3 colunas (não apaga dados). Exemplos só na criação.
   await updateRange(`${SHEET_CONFIG}!A1:C1`, [['prestador', 'tipos', 'especialidades']]);
   if (criarConfig) {
     await updateRange(`${SHEET_CONFIG}!A2:C4`, [
-      ['Clínica A', 'NF, Comprovante, Relatorio, Presenca', 'Fono, TO, ABA'],
-      ['Terapeuta B', 'NF, Laudo, Comprovante, Relatorio, Presenca', ''],
-      ['Consultório Médico C', 'NF, Comprovante', ''],
+      ['Clínica A', 'NF, Comprovante, Relatorio, Presenca, Avaliacao', 'Fono, TO, ABA'],
+      ['Terapeuta B', 'NF, Comprovante, Relatorio, Presenca, Laudo', ''],
+      ['Consultório Médico C', 'NF, Comprovante, Laudo', ''],
     ]);
   }
 }
@@ -127,6 +129,53 @@ export async function lerPerfis() {
 // Compat: só os nomes de prestador.
 export async function lerPrestadores() {
   return (await lerPerfis()).map((p) => p.prestador);
+}
+
+// ---- Referência (laudos/avaliações anuais, com versões) -------------------
+
+export async function lerReferencia() {
+  const rows = await getValues(`${SHEET_REFERENCIA}!A2:F`);
+  return rows.map((r, i) => ({
+    linha: i + 2,
+    tipo: r[REF_COL.tipo] || '',
+    prestador: r[REF_COL.prestador] || '',
+    especialidade: r[REF_COL.especialidade] || '',
+    data_emissao: r[REF_COL.data_emissao] || '',
+    link: r[REF_COL.link] || '',
+    vigente: (r[REF_COL.vigente] || '').toLowerCase() === 'sim',
+  })).filter((x) => x.link);
+}
+
+const mesmaChaveRef = (a, tipo, prestador, esp) => a.tipo === tipo && a.prestador === prestador && (a.especialidade || '') === (esp || '');
+
+// Adiciona uma NOVA VERSÃO: arquiva a vigente anterior (mesma chave) e marca esta como vigente.
+export async function adicionarReferencia({ tipo, prestador, especialidade, data_emissao, link }) {
+  const todas = await lerReferencia();
+  // Desmarca a(s) vigente(s) anterior(es) da mesma chave.
+  for (const r of todas) {
+    if (r.vigente && mesmaChaveRef(r, tipo, prestador, especialidade)) {
+      await updateRange(`${SHEET_REFERENCIA}!F${r.linha}`, [['']]);
+    }
+  }
+  await appendRow(SHEET_REFERENCIA, [tipo, prestador, especialidade || '', data_emissao || '', link, 'sim']);
+}
+
+// Torna uma versão específica a vigente (e arquiva as outras da mesma chave).
+export async function tornarVigente(linha) {
+  const todas = await lerReferencia();
+  const alvo = todas.find((r) => r.linha === linha);
+  if (!alvo) return;
+  for (const r of todas) {
+    if (mesmaChaveRef(r, alvo.tipo, alvo.prestador, alvo.especialidade)) {
+      await updateRange(`${SHEET_REFERENCIA}!F${r.linha}`, [[r.linha === linha ? 'sim' : '']]);
+    }
+  }
+}
+
+// Link do documento VIGENTE para uma chave (ou '' se não houver).
+export function vigenteDe(referencias, tipo, prestador, especialidade) {
+  const r = referencias.find((x) => x.vigente && mesmaChaveRef(x, tipo, prestador, especialidade));
+  return r ? r.link : '';
 }
 
 // ---- Inbox ----------------------------------------------------------------

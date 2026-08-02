@@ -5,6 +5,7 @@ import { ensureSheets } from './sheets.js';
 import { conectarPlanilha } from './picker.js';
 import { renderInbox, pendentesCount } from './inbox.js';
 import { renderLotes } from './lotes.js';
+import { renderReferencia } from './referencia.js';
 import { mostrarView, toast, el } from './ui.js';
 import { buildLabel } from './version.js';
 
@@ -32,9 +33,10 @@ async function irPara(view) {
   if (!isSignedIn()) return renderLogin();
   if (!store.getSheetId()) return renderConectar();
   try {
-    await garantirAbas(); // cria abas Lotes/Inbox/Config se faltarem (1x por dispositivo)
+    await garantirAbas(); // cria abas Lotes/Inbox/Config/Referencia se faltarem (1x por dispositivo)
     if (view === 'inbox') await renderInbox(atualizarBadge);
     else if (view === 'lotes') await renderLotes();
+    else if (view === 'referencia') await renderReferencia();
   } catch (e) {
     if ((e.message || '') === 'SEM_ACESSO') {
       store.clearSheetId();

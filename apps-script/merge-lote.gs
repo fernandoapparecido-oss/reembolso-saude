@@ -33,6 +33,7 @@ const PDF_COMPARTILHAR_COM = [
 
 const PDF_ABA_LOTES = 'Lotes';
 const PDF_ABA_CONFIG = 'Config';
+const PDF_ABA_REFERENCIA = 'Referencia';
 const PDF_PASTA = 'Reembolso PDFs';
 const PDF_LIB_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 
@@ -50,6 +51,7 @@ async function gerarPdfsPendentes() {
   if (!sh) return;
   const vals = sh.getDataRange().getValues();
   const esps = pdfEspecialidades_(ss);
+  const vigentes = pdfVigentes_(ss); // laudo/avaliação vigentes (referência)
 
   for (let i = 1; i < vals.length; i++) {
     const row = vals[i];
@@ -57,7 +59,7 @@ async function gerarPdfsPendentes() {
     const linha = i + 1;
     try {
       pdfCarregarLib_();
-      const ids = pdfColetarIds_(row, esps[String(row[PDFC.prestador] || '').trim()] || []);
+      const ids = pdfColetarIds_(row, esps[String(row[PDFC.prestador] || '').trim()] || [], vigentes);
       if (!ids.length) throw new Error('lote sem documentos');
       const nome = `${row[PDFC.prestador]} ${row[PDFC.mes]}`.replace(/[\\/:*?"<>|]/g, '-').trim();
       const url = pdfSalvar_(await pdfMontar_(ids), nome);
@@ -127,19 +129,42 @@ function pdfSalvar_(pdfBytes, nome) {
 
 // ---- ordem e leitura de slots --------------------------------------------
 
-function pdfColetarIds_(row, especialidades) {
+function pdfColetarIds_(row, especialidades, vigentes) {
   const ids = []; const seen = {};
   const push = (id) => { if (id && !seen[id]) { seen[id] = 1; ids.push(id); } };
   const slot = (idx) => pdfParseSlot_(row[idx]);
+  const prestador = String(row[PDFC.prestador] || '').trim();
+  const vig = (tipo, esp) => (vigentes || {})[`${tipo}||${prestador}||${esp || ''}`];
 
-  [PDFC.NF, PDFC.Comprovante, PDFC.Laudo].forEach((idx) => slot(idx).forEach((e) => push(e.id)));
+  // Compartilhados: NF, Comprovante (do lote) + Laudo (referência vigente).
+  [PDFC.NF, PDFC.Comprovante].forEach((idx) => slot(idx).forEach((e) => push(e.id)));
+  push(vig('Laudo', ''));
+
+  // Por especialidade: Relatório, Presença (do lote) + Avaliação (referência vigente).
   if (especialidades.length) {
-    especialidades.forEach((esp) => [PDFC.Relatorio, PDFC.Presenca].forEach((idx) => slot(idx).filter((e) => e.label === esp).forEach((e) => push(e.id))));
+    especialidades.forEach((esp) => {
+      [PDFC.Relatorio, PDFC.Presenca].forEach((idx) => slot(idx).filter((e) => e.label === esp).forEach((e) => push(e.id)));
+      push(vig('Avaliacao', esp));
+    });
     [PDFC.Relatorio, PDFC.Presenca].forEach((idx) => slot(idx).filter((e) => !e.label).forEach((e) => push(e.id))); // legado sem rótulo
   } else {
     [PDFC.Relatorio, PDFC.Presenca].forEach((idx) => slot(idx).forEach((e) => push(e.id)));
+    push(vig('Avaliacao', ''));
   }
   return ids;
+}
+
+// Mapa dos documentos de referência VIGENTES: "tipo||prestador||esp" -> fileId.
+function pdfVigentes_(ss) {
+  const sh = ss.getSheetByName(PDF_ABA_REFERENCIA); const map = {};
+  if (!sh) return map;
+  const v = sh.getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) {
+    if (String(v[i][5] || '').toLowerCase() !== 'sim') continue; // só vigente
+    const m = String(v[i][4] || '').match(/\/d\/([^/]+)/);
+    if (m) map[`${String(v[i][0] || '').trim()}||${String(v[i][1] || '').trim()}||${String(v[i][2] || '').trim()}`] = m[1];
+  }
+  return map;
 }
 
 function pdfParseSlot_(cell) {

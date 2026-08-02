@@ -1,18 +1,19 @@
 // Tela TRIAGEM: preview + categorização por seleção (zero digitação).
-// Dirigida pela Config: só mostra os tipos que o prestador EXIGE; e, quando o
-// prestador tem especialidades, pede a especialidade dos docs por-terapia
-// (Relatório/Presença). Também serve para RECLASSIFICAR.
+// Dois modos: MENSAL (lote: NF/Comprovante/Relatório/Presença) e REFERÊNCIA
+// (laudo/avaliação anuais, com versões). Também serve para RECLASSIFICAR (mensal).
 import { CONFIG } from './config.js';
 import { el, clear, toast, mostrarView } from './ui.js';
-import { filePreviewLink, fileViewLink, mesesRecentes, sugerirDataLimite } from './model.js';
+import { filePreviewLink, fileViewLink, mesesRecentes, sugerirDataLimite, hojeISO } from './model.js';
 import {
   confirmarTriagem, marcarInboxTriado, marcarInboxPendente, removerArquivoDeTodosLotes,
+  adicionarReferencia,
 } from './sheets.js';
 import { getPerfis, getPerfil } from './catalog.js';
 
 const labelDe = (id) => (CONFIG.TIPOS.find((t) => t.id === id) || { label: id }).label;
+const ehRef = (id) => CONFIG.REF_TIPOS.includes(id);
 
-// opts: { reclassify?:boolean, preselecao?:{prestador,mes,tipos:[],especialidade} }
+// opts: { reclassify?:boolean, preselecao?:{prestador,mes,tipos:[],especialidades} }
 export async function abrirTriagem(item, onDone, opts = {}) {
   const reclass = !!opts.reclassify;
   const pre = opts.preselecao || null;
@@ -37,10 +38,15 @@ export async function abrirTriagem(item, onDone, opts = {}) {
   clear(root);
 
   const sel = {
+    modo: 'mensal', // 'mensal' | 'referencia'
     prestador: pre ? pre.prestador : '',
     mes: pre ? pre.mes : '',
     tipos: new Set(pre ? pre.tipos : []),
     especialidades: new Set(pre ? (pre.especialidades || []) : []),
+    // referência:
+    refTipo: '',
+    refEsp: '',
+    refData: hojeISO(),
   };
   let perfil = sel.prestador ? await getPerfil(sel.prestador) : null;
 
@@ -49,9 +55,7 @@ export async function abrirTriagem(item, onDone, opts = {}) {
     el('h1', { text: reclass ? 'Reclassificar' : 'Categorizar' }),
     el('span', {}),
   ]));
-  if (reclass) {
-    root.appendChild(el('p', { class: 'muted reclass-hint', text: 'Corrija prestador, mês, tipos ou especialidade. Salvar refaz a marcação deste arquivo.' }));
-  }
+  if (reclass) root.appendChild(el('p', { class: 'muted reclass-hint', text: 'Corrija prestador, mês, tipos ou especialidade. Salvar refaz a marcação deste arquivo.' }));
 
   const grid = el('div', { class: 'triage-grid' });
   root.appendChild(grid);
@@ -64,31 +68,26 @@ export async function abrirTriagem(item, onDone, opts = {}) {
   const form = el('div', { class: 'form' });
   grid.appendChild(form);
 
-  // Prestador
+  // Alternador de modo (escondido na reclassificação, que é sempre mensal).
+  const modoBox = el('div', { class: 'campo' });
+  if (!reclass) form.appendChild(modoBox);
+
+  // Prestador (comum aos dois modos)
   form.appendChild(el('label', { class: 'campo' }, [
     el('span', { text: 'Prestador' }),
     prestadores.length
       ? selectDe(prestadores.map((p) => ({ id: p, label: p })), sel.prestador, async (v) => {
-        sel.prestador = v; sel.tipos.clear(); sel.especialidades.clear();
+        sel.prestador = v; sel.tipos.clear(); sel.especialidades.clear(); sel.refTipo = ''; sel.refEsp = '';
         perfil = v ? await getPerfil(v) : null;
-        renderConteudo(); renderEspecialidade(); validar();
+        renderModo(); renderMensal(); renderRef(); validar();
       })
       : el('span', { class: 'muted', text: 'Nenhum prestador na aba Config.' }),
   ]));
 
-  // Mês
-  form.appendChild(el('label', { class: 'campo' }, [
-    el('span', { text: 'Mês de referência' }),
-    selectDe(mesesRecentes(18), sel.mes, (v) => { sel.mes = v; validar(); }),
-  ]));
-
-  // Conteúdo (chips) — depende do prestador
-  const contBox = el('div', { class: 'campo' });
-  form.appendChild(contBox);
-
-  // Especialidade — depende do prestador e dos tipos marcados
-  const espBox = el('div', { class: 'campo' });
-  form.appendChild(espBox);
+  const mensalBox = el('div', {});
+  const refBox = el('div', {});
+  form.appendChild(mensalBox);
+  form.appendChild(refBox);
 
   const btn = el('button', { class: 'btn btn-primary btn-lg' }, reclass ? 'Salvar correção' : 'Confirmar');
   form.appendChild(btn);
@@ -99,88 +98,130 @@ export async function abrirTriagem(item, onDone, opts = {}) {
     form.appendChild(btnRemover);
   }
 
-  function precisaEspecialidade() {
-    return !!(perfil && perfil.especialidades.length && [...sel.tipos].some((t) => CONFIG.PER_ESPECIALIDADE.includes(t)));
+  // ---- Modo ----
+  function renderModo() {
+    clear(modoBox);
+    if (reclass) return;
+    modoBox.appendChild(el('span', { text: 'Tipo de documento' }));
+    const chips = el('div', { class: 'chips' });
+    for (const [id, txt] of [['mensal', 'Mensal (lote)'], ['referencia', 'Referência (laudo/avaliação)']]) {
+      chips.appendChild(el('button', {
+        class: `chip ${sel.modo === id ? 'on' : ''}`, type: 'button',
+        onclick: () => { sel.modo = id; renderModo(); atualizarVisibilidade(); validar(); },
+      }, txt));
+    }
+    modoBox.appendChild(chips);
+  }
+  function atualizarVisibilidade() {
+    mensalBox.hidden = sel.modo !== 'mensal';
+    refBox.hidden = sel.modo !== 'referencia';
   }
 
-  function renderConteudo() {
+  // ---- Mensal ----
+  function renderMensal() {
+    clear(mensalBox);
+    // Mês
+    mensalBox.appendChild(el('label', { class: 'campo' }, [
+      el('span', { text: 'Mês de referência' }),
+      selectDe(mesesRecentes(18), sel.mes, (v) => { sel.mes = v; validar(); }),
+    ]));
+    // Conteúdo (só tipos MENSAIS exigidos)
+    const contBox = el('div', { class: 'campo' });
+    mensalBox.appendChild(contBox);
+    const espBox = el('div', { class: 'campo' });
+    mensalBox.appendChild(espBox);
+
+    const renderEsp = () => {
+      clear(espBox);
+      const precisa = perfil && perfil.especialidades.length && [...sel.tipos].some((t) => CONFIG.PER_ESPECIALIDADE.includes(t));
+      espBox.hidden = !precisa;
+      if (!precisa) return;
+      const perEsp = [...sel.tipos].filter((t) => CONFIG.PER_ESPECIALIDADE.includes(t)).map(labelDe).join(' e ');
+      espBox.appendChild(el('span', { text: `Especialidade(s) para ${perEsp} (pode marcar mais de uma)` }));
+      const chips = el('div', { class: 'chips' });
+      const todas = perfil.especialidades;
+      if (todas.length >= 2) {
+        const on = todas.every((e) => sel.especialidades.has(e));
+        chips.appendChild(el('button', { class: `chip chip-todas ${on ? 'on' : ''}`, type: 'button', onclick: () => { if (on) sel.especialidades.clear(); else todas.forEach((e) => sel.especialidades.add(e)); renderEsp(); validar(); } }, 'Todas'));
+      }
+      for (const esp of todas) {
+        chips.appendChild(el('button', { class: `chip ${sel.especialidades.has(esp) ? 'on' : ''}`, type: 'button', onclick: () => { if (sel.especialidades.has(esp)) sel.especialidades.delete(esp); else sel.especialidades.add(esp); renderEsp(); validar(); } }, esp));
+      }
+      espBox.appendChild(chips);
+    };
+
     clear(contBox);
-    if (!perfil) { contBox.appendChild(el('span', { class: 'muted', text: 'Escolha o prestador para ver os tipos.' })); return; }
+    if (!perfil) { contBox.appendChild(el('span', { class: 'muted', text: 'Escolha o prestador.' })); return; }
+    const mensais = perfil.tipos.filter((t) => !ehRef(t));
     contBox.appendChild(el('span', { text: 'Conteúdo do arquivo (marque todos os que existem)' }));
     const chips = el('div', { class: 'chips' });
-    for (const id of perfil.tipos) {
-      const ligado = sel.tipos.has(id);
-      const b = el('button', {
-        class: `chip ${ligado ? 'on' : ''}`, type: 'button',
-        onclick: () => {
-          if (sel.tipos.has(id)) { sel.tipos.delete(id); b.classList.remove('on'); }
-          else { sel.tipos.add(id); b.classList.add('on'); }
-          renderEspecialidade(); validar();
-        },
-      }, labelDe(id));
-      chips.appendChild(b);
+    for (const id of mensais) {
+      chips.appendChild(el('button', {
+        class: `chip ${sel.tipos.has(id) ? 'on' : ''}`, type: 'button',
+        onclick: (ev) => { const b = ev.currentTarget; if (sel.tipos.has(id)) { sel.tipos.delete(id); b.classList.remove('on'); } else { sel.tipos.add(id); b.classList.add('on'); } renderEsp(); validar(); },
+      }, labelDe(id)));
     }
     contBox.appendChild(chips);
+    renderEsp();
   }
 
-  function renderEspecialidade() {
-    clear(espBox);
-    if (!precisaEspecialidade()) { espBox.hidden = true; return; }
-    espBox.hidden = false;
-    const perEsp = [...sel.tipos].filter((t) => CONFIG.PER_ESPECIALIDADE.includes(t)).map(labelDe).join(' e ');
-    espBox.appendChild(el('span', { text: `Especialidade(s) que este arquivo cobre — para ${perEsp} (pode marcar mais de uma)` }));
-    const chips = el('div', { class: 'chips' });
-    const todas = perfil.especialidades;
+  // ---- Referência ----
+  function renderRef() {
+    clear(refBox);
+    if (!perfil) { refBox.appendChild(el('p', { class: 'campo muted', text: 'Escolha o prestador.' })); return; }
+    // tipo de referência (Laudo/Avaliação) — os exigidos, senão todos
+    const refExigidos = perfil.tipos.filter((t) => ehRef(t));
+    const opcoes = (refExigidos.length ? refExigidos : CONFIG.REF_TIPOS).map((t) => ({ id: t, label: labelDe(t) }));
+    refBox.appendChild(el('label', { class: 'campo' }, [
+      el('span', { text: 'Documento de referência' }),
+      selectDe(opcoes, sel.refTipo, (v) => { sel.refTipo = v; renderRefEsp(); validar(); }),
+    ]));
+    const refEspBox = el('div', { class: 'campo' });
+    refBox.appendChild(refEspBox);
+    refBox.appendChild(el('label', { class: 'campo' }, [
+      el('span', { text: 'Data de emissão' }),
+      dateInput(sel.refData, (v) => { sel.refData = v; validar(); }),
+    ]));
 
-    // Atalho "Todas" (só quando há 2+ especialidades).
-    if (todas.length >= 2) {
-      const todasOn = todas.every((e) => sel.especialidades.has(e));
-      chips.appendChild(el('button', {
-        class: `chip chip-todas ${todasOn ? 'on' : ''}`, type: 'button',
-        onclick: () => {
-          if (todasOn) sel.especialidades.clear();
-          else todas.forEach((e) => sel.especialidades.add(e));
-          renderEspecialidade(); validar();
-        },
-      }, 'Todas'));
+    function renderRefEsp() {
+      clear(refEspBox);
+      const precisa = sel.refTipo && CONFIG.PER_ESPECIALIDADE.includes(sel.refTipo) && perfil.especialidades.length;
+      refEspBox.hidden = !precisa;
+      if (!precisa) { sel.refEsp = ''; return; }
+      refEspBox.appendChild(el('span', { text: 'Especialidade (terapia)' }));
+      refEspBox.appendChild(selectDe(perfil.especialidades.map((e) => ({ id: e, label: e })), sel.refEsp, (v) => { sel.refEsp = v; validar(); }));
     }
-
-    for (const esp of todas) {
-      const ligado = sel.especialidades.has(esp);
-      chips.appendChild(el('button', {
-        class: `chip ${ligado ? 'on' : ''}`, type: 'button',
-        onclick: () => {
-          if (sel.especialidades.has(esp)) sel.especialidades.delete(esp);
-          else sel.especialidades.add(esp);
-          renderEspecialidade(); validar();
-        },
-      }, esp));
-    }
-    espBox.appendChild(chips);
+    renderRefEsp();
   }
 
   function validar() {
-    const ok = sel.prestador && sel.mes && sel.tipos.size > 0 && (!precisaEspecialidade() || sel.especialidades.size > 0);
+    let ok;
+    if (sel.modo === 'mensal') {
+      const precisaEsp = perfil && perfil.especialidades.length && [...sel.tipos].some((t) => CONFIG.PER_ESPECIALIDADE.includes(t));
+      ok = sel.prestador && sel.mes && sel.tipos.size > 0 && (!precisaEsp || sel.especialidades.size > 0);
+    } else {
+      const precisaEsp = sel.refTipo && CONFIG.PER_ESPECIALIDADE.includes(sel.refTipo) && perfil && perfil.especialidades.length;
+      ok = sel.prestador && sel.refTipo && sel.refData && (!precisaEsp || sel.refEsp);
+    }
     btn.disabled = !ok;
   }
 
-  renderConteudo(); renderEspecialidade(); validar();
+  renderModo(); renderMensal(); renderRef(); atualizarVisibilidade(); validar();
 
   btn.addEventListener('click', async () => {
     btn.disabled = true; btn.textContent = 'Gravando…';
     if (btnRemover) btnRemover.disabled = true;
     try {
-      if (reclass) await removerArquivoDeTodosLotes(item.fileId);
-      await confirmarTriagem({
-        prestador: sel.prestador,
-        mes: sel.mes,
-        tiposIds: [...sel.tipos],
-        especialidades: [...sel.especialidades],
-        link: fileViewLink(item.fileId),
-        dataLimite: sugerirDataLimite(sel.mes, CONFIG.PRAZO_DIAS_APOS_MES),
-      });
-      await marcarInboxTriado(item.linha, rotuloLote(sel));
-      toast(reclass ? 'Reclassificado.' : 'Categorizado.', 'ok');
+      if (sel.modo === 'referencia') {
+        await adicionarReferencia({ tipo: sel.refTipo, prestador: sel.prestador, especialidade: sel.refEsp, data_emissao: sel.refData, link: fileViewLink(item.fileId) });
+        await marcarInboxTriado(item.linha, `${labelDe(sel.refTipo)} · ${sel.prestador}${sel.refEsp ? ' · ' + sel.refEsp : ''}`);
+        toast('Referência salva (vigente).', 'ok');
+      } else {
+        if (reclass) await removerArquivoDeTodosLotes(item.fileId);
+        await confirmarTriagem({ prestador: sel.prestador, mes: sel.mes, tiposIds: [...sel.tipos], especialidades: [...sel.especialidades], link: fileViewLink(item.fileId), dataLimite: sugerirDataLimite(sel.mes, CONFIG.PRAZO_DIAS_APOS_MES) });
+        await marcarInboxTriado(item.linha, `${sel.prestador} · ${sel.mes}`);
+        toast(reclass ? 'Reclassificado.' : 'Categorizado.', 'ok');
+      }
       mostrarView('inbox');
       if (onDone) onDone();
     } catch (e) {
@@ -211,11 +252,6 @@ export async function abrirTriagem(item, onDone, opts = {}) {
   }
 }
 
-function rotuloLote(sel) {
-  const esp = sel.especialidades.size ? ` · ${[...sel.especialidades].join('+')}` : '';
-  return `${sel.prestador} · ${sel.mes}${esp}`;
-}
-
 function selectDe(opcoes, selecionado, onChange) {
   const s = el('select');
   s.appendChild(el('option', { value: '', text: '— selecione —' }));
@@ -223,4 +259,10 @@ function selectDe(opcoes, selecionado, onChange) {
   if (selecionado) s.value = selecionado;
   s.addEventListener('change', () => onChange(s.value));
   return s;
+}
+
+function dateInput(valor, onChange) {
+  const i = el('input', { type: 'date', value: valor || '' });
+  i.addEventListener('change', () => onChange(i.value));
+  return i;
 }

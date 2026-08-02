@@ -240,6 +240,22 @@ Formato: **Contexto → Decisão → Porquê → Consequências.**
   com a registrada no Console. Transformar origem quebra o login. Se usar domínio
   próprio, **registrar a nova origem** no OAuth Client e na API key.
 
+### D21. Documentos de referência (anuais) — laudo/avaliação com versões
+- **Contexto:** o **laudo médico** e o **relatório de avaliação por terapia** não são
+  mensais — são **anuais**, emitidos após avaliação, e reaproveitados em vários meses.
+  O modelo tratava `Laudo` como slot mensal (errado).
+- **Decisão:** criar a aba **`Referencia`** (uma linha **por versão**:
+  `tipo | prestador | especialidade | data_emissao | link | vigente`). Tipos de
+  referência em `REF_TIPOS = ['Laudo', 'Avaliacao']` (`Avaliacao` é por especialidade).
+  Uma nova versão **arquiva** a anterior e vira **vigente** (histórico preservado).
+- **Integração:** o **vigente** conta na **completude do lote** e **entra no PDF de
+  impressão** automaticamente — não se reanexa laudo todo mês. `Laudo` **saiu** dos
+  tipos mensais. Mensais por terapia continuam **Relatório + Presença**.
+- **UI:** modo **Referência** na triagem (tipo + prestador + especialidade + data de
+  emissão) e uma **tela Referência** (vigente + histórico + "tornar vigente").
+- **Consequências:** a completude do lote passa a ler duas fontes (Lotes + Referencia);
+  o `merge-lote.gs` também inclui os vigentes no PDF.
+
 ---
 
 ## 5. Alternativas descartadas (e por quê)

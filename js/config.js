@@ -36,16 +36,21 @@ export const CONFIG = {
   // chaves (id) sem atualizar a planilha; o "label" é só o texto do botão.
   TIPOS: [
     { id: 'NF',          label: 'NF' },
-    { id: 'Laudo',       label: 'Laudo' },
     { id: 'Comprovante', label: 'Comprovante' },
     { id: 'Relatorio',   label: 'Relatório' },
     { id: 'Presenca',    label: 'Presença' },
+    { id: 'Laudo',       label: 'Laudo' },        // REFERÊNCIA (anual)
+    { id: 'Avaliacao',   label: 'Avaliação' },    // REFERÊNCIA (anual, por terapia)
   ],
 
-  // Tipos que são UM POR ESPECIALIDADE (terapia) quando o prestador tem
-  // especialidades na Config. Os demais (NF, Laudo, Comprovante) são
-  // compartilhados: um para o lote inteiro.
-  PER_ESPECIALIDADE: ['Relatorio', 'Presenca'],
+  // Tipos de REFERÊNCIA (documentos anuais/periódicos, com versões e "vigente"):
+  // laudo médico e avaliação por terapia. Não são mensais; ficam na aba Referencia
+  // e o vigente entra sozinho no lote (completude + impressão).
+  REF_TIPOS: ['Laudo', 'Avaliacao'],
+
+  // Tipos que são UM POR ESPECIALIDADE (terapia): Relatório e Presença (mensais) e
+  // Avaliação (referência). Os demais (NF, Comprovante, Laudo) são compartilhados.
+  PER_ESPECIALIDADE: ['Relatorio', 'Presenca', 'Avaliacao'],
 
   // Sugestão de prazo: fim do mês de referência + N dias (você edita por lote).
   PRAZO_DIAS_APOS_MES: 90,

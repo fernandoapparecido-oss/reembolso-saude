@@ -77,6 +77,10 @@ Ao instalar/atualizar, rode a função uma vez **na mão** para **autorizar**
    depois **Marcar Reembolsado**.
 6. **Corrigir:** Inbox → aba **Categorizados** (✎) para **reclassificar** ou **remover**
    do lote.
+7. **Referência (laudo/avaliação anuais):** na triagem, escolha o modo **Referência**
+   (tipo + prestador + especialidade + **data de emissão**). Vira o **vigente** e a versão
+   anterior fica no histórico. A aba **Referência** mostra vigente + histórico e permite
+   **tornar vigente**. O vigente **entra sozinho** na completude do lote e no PDF de impressão.
 
 ## 6. Manter a aba `Config`
 
