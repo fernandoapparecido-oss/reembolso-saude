@@ -248,13 +248,14 @@ Formato: **Contexto → Decisão → Porquê → Consequências.**
   `tipo | prestador | especialidade | data_emissao | link | vigente`). Tipos de
   referência em `REF_TIPOS = ['Laudo', 'Avaliacao']` (`Avaliacao` é por especialidade).
   Uma nova versão **arquiva** a anterior e vira **vigente** (histórico preservado).
-- **Integração:** o **vigente** conta na **completude do lote** e **entra no PDF de
-  impressão** automaticamente — não se reanexa laudo todo mês. `Laudo` **saiu** dos
-  tipos mensais. Mensais por terapia continuam **Relatório + Presença**.
+- **Escopo (revisado):** laudo e avaliação são **documentos de suporte à parte** —
+  **NÃO** entram na completude do lote **nem** no PDF de impressão. Ficam só no
+  repositório (aba/tela Referência); o usuário **abre/imprime quando a operadora pedir**.
+  `Laudo` saiu dos tipos mensais; mensais por terapia continuam **Relatório + Presença**.
+  *(Cogitou-se integrar o vigente ao lote/PDF, mas o laudo costuma ser de um prestador
+  diferente do lote e a avaliação é documento de suporte — então ficam separados.)*
 - **UI:** modo **Referência** na triagem (tipo + prestador + especialidade + data de
   emissão) e uma **tela Referência** (vigente + histórico + "tornar vigente").
-- **Consequências:** a completude do lote passa a ler duas fontes (Lotes + Referencia);
-  o `merge-lote.gs` também inclui os vigentes no PDF.
 
 ---
 

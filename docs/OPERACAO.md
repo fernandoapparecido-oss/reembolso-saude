@@ -80,7 +80,8 @@ Ao instalar/atualizar, rode a função uma vez **na mão** para **autorizar**
 7. **Referência (laudo/avaliação anuais):** na triagem, escolha o modo **Referência**
    (tipo + prestador + especialidade + **data de emissão**). Vira o **vigente** e a versão
    anterior fica no histórico. A aba **Referência** mostra vigente + histórico e permite
-   **tornar vigente**. O vigente **entra sozinho** na completude do lote e no PDF de impressão.
+   **tornar vigente**. São **documentos à parte** (fora do lote e do PDF) — abra/imprima o
+   vigente (link ↗) quando a operadora pedir.
 
 ## 6. Manter a aba `Config`
 

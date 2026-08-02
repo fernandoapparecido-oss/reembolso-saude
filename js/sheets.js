@@ -104,9 +104,9 @@ export async function ensureSheets() {
   await updateRange(`${SHEET_CONFIG}!A1:C1`, [['prestador', 'tipos', 'especialidades']]);
   if (criarConfig) {
     await updateRange(`${SHEET_CONFIG}!A2:C4`, [
-      ['Clínica A', 'NF, Comprovante, Relatorio, Presenca, Avaliacao', 'Fono, TO, ABA'],
-      ['Terapeuta B', 'NF, Comprovante, Relatorio, Presenca, Laudo', ''],
-      ['Consultório Médico C', 'NF, Comprovante, Laudo', ''],
+      ['Clínica A', 'NF, Comprovante, Relatorio, Presenca', 'Fono, TO, ABA'],
+      ['Terapeuta B', 'NF, Comprovante, Relatorio, Presenca', ''],
+      ['Consultório Médico C', 'NF, Comprovante', ''],
     ]);
   }
 }

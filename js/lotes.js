@@ -5,7 +5,7 @@ import { el, clear, toast, fmtBRL } from './ui.js';
 import {
   COL, STATUS, TIPOS_IDS, parseSlot, idFromLink, fileViewLink, diasAte, hojeISO,
 } from './model.js';
-import { lerLotes, atualizarLote, pedirPdfLote, lerReferencia, vigenteDe } from './sheets.js';
+import { lerLotes, atualizarLote, pedirPdfLote } from './sheets.js';
 import { getPerfis } from './catalog.js';
 
 let timerPoll = null;
@@ -38,10 +38,10 @@ export async function renderLotes() {
   lista.appendChild(el('p', { class: 'muted', text: 'Carregando…' }));
 
   try {
-    const [brutos, perfis, referencias] = await Promise.all([lerLotes(), getPerfis(), lerReferencia()]);
+    const [brutos, perfis] = await Promise.all([lerLotes(), getPerfis()]);
     const perfilDe = (nome) => perfis.find((p) => p.prestador === nome) || null;
 
-    const analises = brutos.map((b) => analisar(b, perfilDe(b.cols[COL.prestador]), referencias));
+    const analises = brutos.map((b) => analisar(b, perfilDe(b.cols[COL.prestador])));
 
     clear(lista);
     const filtrados = analises.filter(FILTROS[filtroAtual].fn);
@@ -64,48 +64,41 @@ export async function renderLotes() {
 
 // Analisa um lote contra o perfil do prestador: o que é compartilhado, a matriz
 // por especialidade, o que falta e se está completo.
-function analisar(b, perfil, referencias) {
+function analisar(b, perfil) {
   const cols = b.cols;
   const slot = (t) => parseSlot(cols[COL[t]] || '');
-  const tipos = perfil ? perfil.tipos : TIPOS_IDS;
+  // Laudo/Avaliação são REFERÊNCIA (documentos à parte) — não entram no lote.
+  const tipos = (perfil ? perfil.tipos : TIPOS_IDS).filter((t) => !CONFIG.REF_TIPOS.includes(t));
   const esps = perfil ? perfil.especialidades : [];
-  const prestador = cols[COL.prestador] || '';
-  const isRef = (t) => CONFIG.REF_TIPOS.includes(t);
-  const isPerEsp = (t) => CONFIG.PER_ESPECIALIDADE.includes(t);
+  const perEsp = tipos.filter((t) => CONFIG.PER_ESPECIALIDADE.includes(t));
+  const compartilhados = tipos.filter((t) => !CONFIG.PER_ESPECIALIDADE.includes(t));
 
   const faltando = [];
   const linhaShared = [];
-
-  // Item compartilhado (mensal via slot; referência via VIGENTE).
-  const itemShared = (t) => {
-    if (isRef(t)) { const v = vigenteDe(referencias, t, prestador, ''); return { tipo: t, ok: !!v, links: v ? [v] : [], ref: true }; }
-    const e = slot(t); return { tipo: t, ok: e.length > 0, links: e.map((x) => x.link), ref: false };
-  };
-
-  for (const t of tipos.filter((x) => !isPerEsp(x))) {
-    const it = itemShared(t);
-    if (!it.ok) faltando.push(labelDe(t));
-    linhaShared.push(it);
+  for (const t of compartilhados) {
+    const entradas = slot(t);
+    const ok = entradas.length > 0;
+    if (!ok) faltando.push(labelDe(t));
+    linhaShared.push({ tipo: t, ok, links: entradas.map((e) => e.link) });
   }
 
-  const perEsp = tipos.filter((t) => isPerEsp(t));
   const matriz = [];
   if (esps.length) {
     for (const esp of esps) {
       const itens = perEsp.map((t) => {
-        let ok; let link;
-        if (isRef(t)) { const v = vigenteDe(referencias, t, prestador, esp); ok = !!v; link = v || ''; }
-        else { const entrada = slot(t).find((e) => e.label === esp); ok = !!entrada; link = entrada ? entrada.link : ''; }
+        const entrada = slot(t).find((e) => e.label === esp);
+        const ok = !!entrada;
         if (!ok) faltando.push(`${esp}/${labelDe(t)}`);
-        return { tipo: t, ok, link, ref: isRef(t) };
+        return { tipo: t, ok, link: entrada ? entrada.link : '' };
       });
       matriz.push({ esp, itens });
     }
   } else {
     for (const t of perEsp) {
-      const it = itemShared(t);
-      if (!it.ok) faltando.push(labelDe(t));
-      linhaShared.push(it);
+      const entradas = slot(t);
+      const ok = entradas.length > 0;
+      if (!ok) faltando.push(labelDe(t));
+      linhaShared.push({ tipo: t, ok, links: entradas.map((e) => e.link) });
     }
   }
 
