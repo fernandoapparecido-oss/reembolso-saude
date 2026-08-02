@@ -198,14 +198,16 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
    *Faltando docs / Prontos p/ enviar / Prazo desta semana*, e **Registrar envio**
    (data de postagem, rastreio, valor) quando postar nos Correios.
 
-### Documentos de referência (laudo/avaliação anuais)
-Laudo médico e avaliação por terapia **não são mensais** — são anuais, emitidos após
-avaliação. Na triagem, escolha o modo **Referência**, o tipo (Laudo/Avaliação), o prestador,
-a especialidade (para avaliação) e a **data de emissão**. O app guarda como **vigente** e
-arquiva a versão anterior (histórico). A aba **Referência** no app mostra o vigente + histórico
-e permite **tornar vigente** uma versão antiga. São **documentos de suporte à parte**: **não**
-entram na completude do lote nem no PDF de impressão — você **abre/imprime** o vigente (link ↗)
-quando a operadora pedir.
+### Documentos de referência (à parte do lote)
+Documentos de suporte, **fora do lote e do PDF de impressão** — você abre/imprime (link ↗)
+quando precisar. Dois tipos, definidos em `config.js`:
+- **Com vigência** (`REF_VIGENCIA`: Laudo, Avaliação): versões que se **substituem** — o app
+  guarda o **vigente** e arquiva o anterior (histórico); dá para **tornar vigente** uma versão antiga.
+- **Arquivo, sem vigência** (Exame, Pedido médico, Encaminhamento): apenas **acumulam** numa
+  lista, para controle.
+
+Na triagem, escolha o modo **Referência**, o tipo, o prestador, a especialidade (só para
+Avaliação) e a **data**. A aba **Referência** mostra tudo agrupado por tipo/prestador.
 
 ### Imprimir o lote (PDF único)
 No card do lote, **Gerar PDF para impressão** → o app registra o pedido na planilha e o

@@ -254,8 +254,11 @@ Formato: **Contexto → Decisão → Porquê → Consequências.**
   `Laudo` saiu dos tipos mensais; mensais por terapia continuam **Relatório + Presença**.
   *(Cogitou-se integrar o vigente ao lote/PDF, mas o laudo costuma ser de um prestador
   diferente do lote e a avaliação é documento de suporte — então ficam separados.)*
-- **UI:** modo **Referência** na triagem (tipo + prestador + especialidade + data de
-  emissão) e uma **tela Referência** (vigente + histórico + "tornar vigente").
+- **Dois tipos de referência:** **com vigência** (`REF_VIGENCIA`: Laudo, Avaliação —
+  versões que se substituem, com "vigente" + histórico) e **arquivo sem vigência**
+  (Exame, Pedido médico, Encaminhamento — só acumulam numa lista, para controle).
+- **UI:** modo **Referência** na triagem (tipo + prestador + especialidade + data) e uma
+  **tela Referência** (agrupa por tipo/prestador; vigente+histórico ou lista de arquivo).
 
 ---
 

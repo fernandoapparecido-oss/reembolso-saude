@@ -39,14 +39,19 @@ export const CONFIG = {
     { id: 'Comprovante', label: 'Comprovante' },
     { id: 'Relatorio',   label: 'Relatório' },
     { id: 'Presenca',    label: 'Presença' },
-    { id: 'Laudo',       label: 'Laudo' },        // REFERÊNCIA (anual)
-    { id: 'Avaliacao',   label: 'Avaliação' },    // REFERÊNCIA (anual, por terapia)
+    { id: 'Laudo',          label: 'Laudo' },          // REFERÊNCIA (com vigência)
+    { id: 'Avaliacao',      label: 'Avaliação' },      // REFERÊNCIA (com vigência, por terapia)
+    { id: 'Exame',          label: 'Exame' },          // REFERÊNCIA (arquivo, sem vigência)
+    { id: 'Pedido',         label: 'Pedido médico' },  // REFERÊNCIA (arquivo, sem vigência)
+    { id: 'Encaminhamento', label: 'Encaminhamento' }, // REFERÊNCIA (arquivo, sem vigência)
   ],
 
-  // Tipos de REFERÊNCIA (documentos anuais/periódicos, com versões e "vigente"):
-  // laudo médico e avaliação por terapia. Não são mensais; ficam na aba Referencia
-  // e o vigente entra sozinho no lote (completude + impressão).
-  REF_TIPOS: ['Laudo', 'Avaliacao'],
+  // Tipos de REFERÊNCIA (documentos à parte, fora do lote/impressão).
+  REF_TIPOS: ['Laudo', 'Avaliacao', 'Exame', 'Pedido', 'Encaminhamento'],
+
+  // Quais tipos de referência têm VIGÊNCIA (versões que se substituem, com "vigente").
+  // Os demais tipos de referência são apenas ARQUIVO (acumulam, sem vigente).
+  REF_VIGENCIA: ['Laudo', 'Avaliacao'],
 
   // Tipos que são UM POR ESPECIALIDADE (terapia): Relatório e Presença (mensais) e
   // Avaliação (referência). Os demais (NF, Comprovante, Laudo) são compartilhados.

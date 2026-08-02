@@ -148,16 +148,19 @@ export async function lerReferencia() {
 
 const mesmaChaveRef = (a, tipo, prestador, esp) => a.tipo === tipo && a.prestador === prestador && (a.especialidade || '') === (esp || '');
 
-// Adiciona uma NOVA VERSÃO: arquiva a vigente anterior (mesma chave) e marca esta como vigente.
+// Adiciona um documento de referência. Se o tipo tem VIGÊNCIA, arquiva o vigente
+// anterior (mesma chave) e marca este como vigente. Se é só ARQUIVO, apenas acumula.
 export async function adicionarReferencia({ tipo, prestador, especialidade, data_emissao, link }) {
-  const todas = await lerReferencia();
-  // Desmarca a(s) vigente(s) anterior(es) da mesma chave.
-  for (const r of todas) {
-    if (r.vigente && mesmaChaveRef(r, tipo, prestador, especialidade)) {
-      await updateRange(`${SHEET_REFERENCIA}!F${r.linha}`, [['']]);
+  const temVigencia = CONFIG.REF_VIGENCIA.includes(tipo);
+  if (temVigencia) {
+    const todas = await lerReferencia();
+    for (const r of todas) {
+      if (r.vigente && mesmaChaveRef(r, tipo, prestador, especialidade)) {
+        await updateRange(`${SHEET_REFERENCIA}!F${r.linha}`, [['']]);
+      }
     }
   }
-  await appendRow(SHEET_REFERENCIA, [tipo, prestador, especialidade || '', data_emissao || '', link, 'sim']);
+  await appendRow(SHEET_REFERENCIA, [tipo, prestador, especialidade || '', data_emissao || '', link, temVigencia ? 'sim' : '']);
 }
 
 // Torna uma versão específica a vigente (e arquiva as outras da mesma chave).

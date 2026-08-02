@@ -45,22 +45,31 @@ export async function renderReferencia() {
 
 function cardGrupo(versoes) {
   const r0 = versoes[0];
+  const temVigencia = CONFIG.REF_VIGENCIA.includes(r0.tipo);
   const titulo = `${labelDe(r0.tipo)} — ${r0.prestador}${r0.especialidade ? ' · ' + r0.especialidade : ''}`;
-  const vig = versoes.find((v) => v.vigente);
-
   const card = el('div', { class: 'card card-lote' });
+
+  // Tipos de ARQUIVO (sem vigência): só uma lista dos documentos guardados.
+  if (!temVigencia) {
+    card.appendChild(el('div', { class: 'lote-top' }, [
+      el('strong', { text: titulo }),
+      el('span', { class: 'pill pill-enviado', text: `${versoes.length} arquivo(s)` }),
+    ]));
+    for (const v of versoes) {
+      card.appendChild(el('div', { class: 'esp-linha' }, [el('span', { text: `${v.data_emissao || '—'} ` }), linkAbrir(v.link)]));
+    }
+    return card;
+  }
+
+  // Tipos COM vigência: vigente em destaque + histórico.
+  const vig = versoes.find((v) => v.vigente);
   card.appendChild(el('div', { class: 'lote-top' }, [
     el('strong', { text: titulo }),
     vig ? el('span', { class: 'pill pill-reembolsado', text: 'vigente' }) : el('span', { class: 'pill pill-aguardando', text: 'sem vigente' }),
   ]));
-
   if (vig) {
-    card.appendChild(el('div', { class: 'resumo-ok' }, [
-      el('span', { text: `Vigente: emitido ${vig.data_emissao || '—'} ` }),
-      linkAbrir(vig.link),
-    ]));
+    card.appendChild(el('div', { class: 'resumo-ok' }, [el('span', { text: `Vigente: emitido ${vig.data_emissao || '—'} ` }), linkAbrir(vig.link)]));
   }
-
   const antigas = versoes.filter((v) => !v.vigente);
   if (antigas.length) {
     card.appendChild(el('div', { class: 'muted', text: 'Histórico:' }));
