@@ -175,6 +175,11 @@ export async function tornarVigente(linha) {
   }
 }
 
+// Expira uma versão (tira o "vigente" sem promover outra). Vai para o histórico.
+export async function expirarReferencia(linha) {
+  await updateRange(`${SHEET_REFERENCIA}!F${linha}`, [['']]);
+}
+
 // Link do documento VIGENTE para uma chave (ou '' se não houver).
 export function vigenteDe(referencias, tipo, prestador, especialidade) {
   const r = referencias.find((x) => x.vigente && mesmaChaveRef(x, tipo, prestador, especialidade));

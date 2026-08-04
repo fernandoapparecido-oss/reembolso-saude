@@ -4,7 +4,7 @@
 import { CONFIG } from './config.js';
 import { el, clear, toast } from './ui.js';
 import { fileViewLink, idFromLink } from './model.js';
-import { lerReferencia, tornarVigente } from './sheets.js';
+import { lerReferencia, tornarVigente, expirarReferencia } from './sheets.js';
 
 const labelDe = (id) => (CONFIG.TIPOS.find((t) => t.id === id) || { label: id }).label;
 
@@ -68,7 +68,11 @@ function cardGrupo(versoes) {
     vig ? el('span', { class: 'pill pill-reembolsado', text: 'vigente' }) : el('span', { class: 'pill pill-aguardando', text: 'sem vigente' }),
   ]));
   if (vig) {
-    card.appendChild(el('div', { class: 'resumo-ok' }, [el('span', { text: `Vigente: emitido ${vig.data_emissao || '—'} ` }), linkAbrir(vig.link)]));
+    card.appendChild(el('div', { class: 'resumo-ok' }, [
+      el('span', { text: `Vigente: emitido ${vig.data_emissao || '—'} ` }),
+      linkAbrir(vig.link),
+      el('button', { class: 'btn btn-ghost btn-danger-text', onclick: () => expirar(vig.linha) }, 'Expirar'),
+    ]));
   }
   const antigas = versoes.filter((v) => !v.vigente);
   if (antigas.length) {
@@ -91,4 +95,9 @@ function linkAbrir(link) {
 async function promover(linha) {
   try { await tornarVigente(linha); toast('Versão marcada como vigente.', 'ok'); renderReferencia(); }
   catch (e) { toast('Falha ao atualizar.', 'err'); console.warn(e.message); }
+}
+
+async function expirar(linha) {
+  try { await expirarReferencia(linha); toast('Documento expirado (foi para o histórico).', 'ok'); renderReferencia(); }
+  catch (e) { toast('Falha ao expirar.', 'err'); console.warn(e.message); }
 }
