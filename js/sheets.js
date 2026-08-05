@@ -4,8 +4,9 @@ import { getToken, ensureToken } from './auth.js';
 import { store } from './store.js';
 import { CONFIG } from './config.js';
 import {
-  SHEET_LOTES, SHEET_INBOX, SHEET_CONFIG, SHEET_REFERENCIA, LOTES_HEADER, INBOX_HEADER,
-  REF_HEADER, REF_COL, COL, INBOX_COL, TIPOS_IDS, colLetter, idFromLink,
+  SHEET_LOTES, SHEET_INBOX, SHEET_CONFIG, SHEET_REFERENCIA, SHEET_PROTOCOLOS,
+  LOTES_HEADER, INBOX_HEADER, REF_HEADER, REF_COL, PROTO_HEADER, PROTO_COL,
+  COL, INBOX_COL, TIPOS_IDS, colLetter, idFromLink,
   parseSlot, buildSlot, tipoCanonico,
 } from './model.js';
 
@@ -93,12 +94,14 @@ export async function ensureSheets() {
   const criarConfig = !titles.includes(SHEET_CONFIG);
   if (criarConfig) reqs.push({ addSheet: { properties: { title: SHEET_CONFIG } } });
   if (!titles.includes(SHEET_REFERENCIA)) reqs.push({ addSheet: { properties: { title: SHEET_REFERENCIA } } });
+  if (!titles.includes(SHEET_PROTOCOLOS)) reqs.push({ addSheet: { properties: { title: SHEET_PROTOCOLOS } } });
   if (reqs.length) await batchUpdate(reqs);
 
   // Cabeçalhos das abas de dados (sobrescreve a linha 1 — barato e consistente).
   await updateRange(`${SHEET_LOTES}!A1:${colLetter(LOTES_HEADER.length - 1)}1`, [LOTES_HEADER]);
   await updateRange(`${SHEET_INBOX}!A1:${colLetter(INBOX_HEADER.length - 1)}1`, [INBOX_HEADER]);
   await updateRange(`${SHEET_REFERENCIA}!A1:${colLetter(REF_HEADER.length - 1)}1`, [REF_HEADER]);
+  await updateRange(`${SHEET_PROTOCOLOS}!A1:${colLetter(PROTO_HEADER.length - 1)}1`, [PROTO_HEADER]);
 
   // Config: cabeçalho de 3 colunas (não apaga dados). Exemplos só na criação.
   await updateRange(`${SHEET_CONFIG}!A1:C1`, [['prestador', 'tipos', 'especialidades']]);
@@ -184,6 +187,34 @@ export async function expirarReferencia(linha) {
 export function vigenteDe(referencias, tipo, prestador, especialidade) {
   const r = referencias.find((x) => x.vigente && mesmaChaveRef(x, tipo, prestador, especialidade));
   return r ? r.link : '';
+}
+
+// ---- Protocolos / chamados com o plano de saúde ---------------------------
+
+export async function lerProtocolos() {
+  const rows = await getValues(`${SHEET_PROTOCOLOS}!A2:F`);
+  return rows.map((r, i) => ({
+    linha: i + 2,
+    data_abertura: r[PROTO_COL.data_abertura] || '',
+    protocolo: r[PROTO_COL.protocolo] || '',
+    titulo: r[PROTO_COL.titulo] || '',
+    descricao: r[PROTO_COL.descricao] || '',
+    prazo: r[PROTO_COL.prazo] || '',
+    status: r[PROTO_COL.status] || 'Aberto',
+  })).filter((x) => x.titulo || x.protocolo);
+}
+
+export async function adicionarProtocolo({ protocolo, titulo, descricao, prazo, data_abertura }) {
+  await appendRow(SHEET_PROTOCOLOS, [data_abertura || '', protocolo || '', titulo || '', descricao || '', prazo || '', 'Aberto']);
+}
+
+export async function atualizarProtocolo(linha, patch) {
+  const fim = colLetter(PROTO_HEADER.length - 1);
+  const rows = await getValues(`${SHEET_PROTOCOLOS}!A${linha}:${fim}${linha}`);
+  const row = (rows[0] || []).slice();
+  while (row.length < PROTO_HEADER.length) row.push('');
+  for (const [k, v] of Object.entries(patch)) if (PROTO_COL[k] !== undefined) row[PROTO_COL[k]] = v;
+  await updateRange(`${SHEET_PROTOCOLOS}!A${linha}:${fim}${linha}`, [row]);
 }
 
 // ---- Inbox ----------------------------------------------------------------

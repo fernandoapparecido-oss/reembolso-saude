@@ -102,10 +102,12 @@ main { max-width: 1000px; margin: 0 auto; padding: 14px; }
 .form { display: flex; flex-direction: column; gap: 16px; }
 .campo { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
 .campo > span { font-size: 14px; color: var(--muted); }
-.campo select, .campo input {
+.campo select, .campo input, .campo textarea {
   background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
   border-radius: 10px; padding: 12px; font-size: 16px; width: 100%;
 }
+.campo textarea { resize: vertical; font-family: inherit; }
+.proto-desc { white-space: pre-wrap; font-size: 14px; color: var(--text); }
 .campo-inline { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
 .campo-inline > span { flex: 0 0 auto; }
 .campo-inline input { max-width: 60%; }

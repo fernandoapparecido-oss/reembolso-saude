@@ -6,6 +6,7 @@ import { conectarPlanilha } from './picker.js';
 import { renderInbox, pendentesCount } from './inbox.js';
 import { renderLotes } from './lotes.js';
 import { renderReferencia } from './referencia.js';
+import { renderProtocolos } from './protocolos.js';
 import { mostrarView, toast, el } from './ui.js';
 import { buildLabel } from './version.js';
 
@@ -37,6 +38,7 @@ async function irPara(view) {
     if (view === 'inbox') await renderInbox(atualizarBadge);
     else if (view === 'lotes') await renderLotes();
     else if (view === 'referencia') await renderReferencia();
+    else if (view === 'protocolos') await renderProtocolos();
   } catch (e) {
     if ((e.message || '') === 'SEM_ACESSO') {
       store.clearSheetId();

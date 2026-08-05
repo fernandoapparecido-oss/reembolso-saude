@@ -209,6 +209,12 @@ quando precisar. Dois tipos, definidos em `config.js`:
 Na triagem, escolha o modo **Referência**, o tipo, o prestador, a especialidade (só para
 Avaliação) e a **data**. A aba **Referência** mostra tudo agrupado por tipo/prestador.
 
+### Protocolos / chamados com o plano
+Aba **Protocolos**: registre interações com a operadora — **protocolo, título, descrição e
+prazo** (texto livre, é anotação, não documento). Prazo próximo/vencido acende; marque
+**Resolvido**/**Reabrir**, **Edite** e filtre por Abertos/Resolvidos. Fica na aba
+`Protocolos` da planilha.
+
 ### Imprimir o lote (PDF único)
 No card do lote, **Gerar PDF para impressão** → o app registra o pedido na planilha e o
 `apps-script/merge-lote.gs` (na conta dona) junta **todos os documentos do lote num PDF só**

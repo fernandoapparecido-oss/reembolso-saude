@@ -10,6 +10,10 @@ export const SHEET_REFERENCIA = 'Referencia'; // laudos/avaliações anuais, com
 export const REF_HEADER = ['tipo', 'prestador', 'especialidade', 'data_emissao', 'link', 'vigente'];
 export const REF_COL = { tipo: 0, prestador: 1, especialidade: 2, data_emissao: 3, link: 4, vigente: 5 };
 
+export const SHEET_PROTOCOLOS = 'Protocolos'; // protocolos/chamados com o plano de saúde
+export const PROTO_HEADER = ['data_abertura', 'protocolo', 'titulo', 'descricao', 'prazo', 'status'];
+export const PROTO_COL = { data_abertura: 0, protocolo: 1, titulo: 2, descricao: 3, prazo: 4, status: 5 };
+
 // Ordem das colunas da aba "Lotes" (0-indexado). Também é o cabeçalho.
 export const LOTES_HEADER = [
   'prestador',      // 0

@@ -82,6 +82,9 @@ Ao instalar/atualizar, rode a função uma vez **na mão** para **autorizar**
    anterior fica no histórico. A aba **Referência** mostra vigente + histórico e permite
    **tornar vigente**. São **documentos à parte** (fora do lote e do PDF) — abra/imprima o
    vigente (link ↗) quando a operadora pedir.
+8. **Protocolos/chamados:** aba **Protocolos** → **＋ Novo protocolo** (protocolo, título,
+   descrição, **prazo**). Prazo próximo/vencido acende; **Marcar resolvido**/**Reabrir** e
+   **Editar** disponíveis. Filtros Abertos/Resolvidos/Todos.
 
 ## 6. Manter a aba `Config`
 
