@@ -1,6 +1,6 @@
 // Tela INBOX: fila de pendentes + aba de já categorizados (para reclassificar).
 import { el, clear, toast } from './ui.js';
-import { lerInbox, adotarArquivos, classificacaoDoArquivo } from './sheets.js';
+import { lerInbox, adotarArquivos, classificacaoDoArquivo, marcarInboxIgnorado } from './sheets.js';
 import { apontarArquivos } from './picker.js';
 import { abrirTriagem } from './triage.js';
 
@@ -27,7 +27,7 @@ export async function renderInbox(onBadge) {
 
   try {
     const inbox = await lerInbox();
-    cachePendentes = inbox.filter((x) => x.status !== 'triado');
+    cachePendentes = inbox.filter((x) => x.status !== 'triado' && x.status !== 'ignorado');
     cacheTriados = inbox.filter((x) => x.status === 'triado');
     if (onBadge) onBadge(cachePendentes.length);
 
@@ -78,12 +78,31 @@ function desenharLista(lista, onBadge) {
     }
     filhos.push(el('span', { class: 'chevron', text: abaAtual === 'categorizados' ? '✎' : '›' }));
 
-    lista.appendChild(el('button', {
-      class: 'card card-file',
-      onclick: () => (abaAtual === 'pendentes'
-        ? abrirTriagem(item, () => renderInbox(onBadge))
-        : onReclassificar(item, onBadge)),
-    }, filhos));
+    const abrir = () => (abaAtual === 'pendentes'
+      ? abrirTriagem(item, () => renderInbox(onBadge))
+      : onReclassificar(item, onBadge));
+
+    if (abaAtual === 'pendentes') {
+      // Área clicável (triagem) + botão Ignorar (sai da fila).
+      const main = el('button', { class: 'file-main', onclick: abrir }, filhos);
+      const ign = el('button', { class: 'file-ign', title: 'Ignorar (sai da fila)', onclick: () => onIgnorar(item, onBadge) }, '✕');
+      lista.appendChild(el('div', { class: 'card card-file' }, [main, ign]));
+    } else {
+      lista.appendChild(el('button', { class: 'card card-file', onclick: abrir }, filhos));
+    }
+  }
+}
+
+async function onIgnorar(item, onBadge) {
+  const nome = item.nome || item.fileId;
+  if (!window.confirm(`Ignorar “${nome}”?\nSai da fila e não volta. O arquivo continua no Drive.`)) return;
+  try {
+    await marcarInboxIgnorado(item.linha);
+    toast('Arquivo ignorado (saiu da fila).', 'ok');
+    await renderInbox(onBadge);
+  } catch (e) {
+    toast('Falha ao ignorar.', 'err');
+    console.warn(e.message);
   }
 }
 

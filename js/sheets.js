@@ -251,6 +251,12 @@ export async function marcarInboxPendente(linha) {
   await updateRange(`${SHEET_INBOX}!D${linha}:E${linha}`, [['pendente', '']]);
 }
 
+// Ignora um item da Inbox (sai da fila; não volta pela importação de e-mail,
+// pois o fileId continua na aba Inbox). O arquivo permanece no Drive.
+export async function marcarInboxIgnorado(linha) {
+  await updateRange(`${SHEET_INBOX}!D${linha}:E${linha}`, [['ignorado', '']]);
+}
+
 // ---- Lotes ----------------------------------------------------------------
 
 export async function lerLotes() {

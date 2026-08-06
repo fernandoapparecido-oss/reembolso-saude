@@ -80,6 +80,10 @@ main { max-width: 1000px; margin: 0 auto; padding: 14px; }
   color: var(--text); cursor: pointer;
 }
 .card-file:active { background: var(--surface-2); }
+.file-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; background: transparent; border: none; color: inherit; cursor: pointer; text-align: left; font: inherit; padding: 0; }
+.file-main:active { opacity: .7; }
+.file-ign { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 15px; }
+.file-ign:active { background: var(--surface-2); color: var(--danger); }
 .file-ico { font-size: 22px; }
 .file-nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-lote { font-size: 12px; flex: 0 0 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
