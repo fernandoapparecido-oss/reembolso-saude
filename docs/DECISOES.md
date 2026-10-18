@@ -139,7 +139,9 @@ Formato: **Contexto → Decisão → Porquê → Consequências.**
   realidade. "Um arquivo, uma ação, marca vários requisitos."
 - **Consequências:** `Lotes` tem colunas
   `prestador | mes | NF | Laudo | Comprovante | Relatorio | Presenca | data_limite |
-  status | data_postagem | rastreio | valor | pedido_pdf | pdf_lote`.
+  status | data_postagem | rastreio | valor | pedido_pdf | pdf_lote | protocolo`.
+  Colunas novas entram **sempre no fim** (não quebra linhas antigas nem os Apps Scripts,
+  que usam índices fixos). `Enviado` + `protocolo` preenchido = **`Em análise`**.
 
 ### D10. Perfil por prestador + especialidades (na Config)
 - **Contexto:** casos diferentes — médico (só NF+Comprovante), fornecedor único (1
@@ -324,3 +326,5 @@ Resumo do que mudou ao longo do desenvolvimento (ver `git log` para detalhe):
 8. PWA instalável + login silencioso.
 9. Produção: **escopo reduzido a não-sensível** (fim do aviso) + **`login_hint`**
    (fim do seletor de conta) + auto-recuperação de acesso à planilha.
+10. Lotes: **filtros** (busca, situação, prestador, status, período, ordem — lembrados no
+    dispositivo) + **protocolo** no envio e status **Em análise**.

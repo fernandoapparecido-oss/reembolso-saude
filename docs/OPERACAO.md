@@ -69,12 +69,14 @@ Ao instalar/atualizar, rode a função uma vez **na mão** para **autorizar**
 2. **Triagem:** toque no arquivo → **preview** → escolha **Prestador**, **Mês** e
    marque **os tipos** que existem nele; se for clínica com especialidades, marque a(s)
    **especialidade(s)** (ou **Todas**) → **Confirmar**.
-3. **Lotes:** acompanhe `Aguardando/Completo/Enviado/Reembolsado`, filtre por
-   *Faltando / Prontos / Prazo desta semana*.
+3. **Lotes:** acompanhe `Aguardando/Completo/Enviado/Em análise/Reembolsado`. Use a busca,
+   os atalhos (*Faltando / Prontos / Prazo desta semana / Aguardando reembolso*) e **Mais
+   filtros** (prestador, status, período, ordem) para achar lotes antigos.
 4. **Imprimir:** no lote, **Gerar PDF para impressão** → em ~1–2 min vira **🖨 Imprimir**
    (um PDF único, uma impressão). Poste nos Correios.
-5. **Registrar envio:** no lote, **Registrar envio** (data de postagem, rastreio, valor);
-   depois **Marcar Reembolsado**.
+5. **Registrar envio:** no lote, **Registrar envio** (data de postagem, rastreio, protocolo,
+   valor). Com protocolo, o lote fica **Em análise** (o protocolo pode entrar depois em
+   *Editar envio*); depois **Marcar Reembolsado**.
 6. **Corrigir:** Inbox → aba **Categorizados** (✎) para **reclassificar** ou **remover**
    do lote.
 7. **Referência (laudo/avaliação anuais):** na triagem, escolha o modo **Referência**

@@ -30,7 +30,7 @@ function avisarPrazos() {
 
   dados.forEach((r) => {
     const status = String(r[C.status] || '').trim();
-    if (status === 'Enviado' || status === 'Reembolsado') return;
+    if (status === 'Enviado' || status === 'Em análise' || status === 'Reembolsado') return;
     const dl = parseData(r[C.data_limite]);
     if (!dl) return;
     const dias = Math.round((dl - hoje) / 86400000);
