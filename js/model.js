@@ -24,19 +24,20 @@ export const LOTES_HEADER = [
   'Relatorio',      // 5  link(s)
   'Presenca',       // 6  link(s)
   'data_limite',    // 7  (YYYY-MM-DD)
-  'status',         // 8  Aguardando | Completo | Enviado | Reembolsado
+  'status',         // 8  Aguardando | Completo | Enviado | Em análise | Reembolsado
   'data_postagem',  // 9  (YYYY-MM-DD)
   'rastreio',       // 10
   'valor',          // 11
   'pedido_pdf',     // 12  timestamp do pedido de PDF (app escreve; Apps Script limpa)
   'pdf_lote',       // 13  link do PDF único juntado (Apps Script escreve)
+  'protocolo',      // 14  protocolo do pedido de reembolso no plano (presente => Em análise)
 ];
 
 export const COL = {
   prestador: 0, mes: 1,
   NF: 2, Laudo: 3, Comprovante: 4, Relatorio: 5, Presenca: 6,
   data_limite: 7, status: 8, data_postagem: 9, rastreio: 10, valor: 11,
-  pedido_pdf: 12, pdf_lote: 13,
+  pedido_pdf: 12, pdf_lote: 13, protocolo: 14,
 };
 
 // Tipos (slots de documento) na ordem das colunas — independentes dos rótulos do config.
@@ -50,6 +51,7 @@ export const STATUS = {
   AGUARDANDO: 'Aguardando',
   COMPLETO: 'Completo',
   ENVIADO: 'Enviado',
+  EM_ANALISE: 'Em análise', // enviado e com protocolo registrado no plano
   REEMBOLSADO: 'Reembolsado',
 };
 

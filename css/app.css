@@ -132,12 +132,31 @@ main { max-width: 1000px; margin: 0 auto; padding: 14px; }
 }
 .filtro.on { background: var(--surface-2); color: var(--text); border-color: var(--primary); }
 
+.filtros-box { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
+.filtros-box .filtros { margin-bottom: 0; }
+.filtro-busca {
+  width: 100%; background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 10px; padding: 11px 12px; font-size: 16px;
+}
+.filtros-mais { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.filtros-mais > summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 14px; color: var(--muted); }
+.filtros-mais[open] > summary { color: var(--text); border-bottom: 1px solid var(--border); }
+.filtros-mais > .acoes { padding: 0 14px 12px; }
+.filtros-grade { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px 14px; }
+@media (min-width: 620px) { .filtros-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.filtro-periodo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.filtros-grade > *, .filtro-periodo > * { min-width: 0; }
+.campo-filtro select, .campo-filtro input { padding: 10px; min-width: 0; max-width: 100%; }
+.filtro-contador { font-size: 13px; margin: 0 0 10px; }
+.envio-dica { margin: 0; font-size: 13px; }
+
 .card-lote { display: flex; flex-direction: column; gap: 12px; }
 .lote-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pill { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border); }
 .pill-aguardando { color: var(--warn); border-color: var(--warn); }
 .pill-completo { color: var(--primary); border-color: var(--primary); }
 .pill-enviado { color: var(--muted); }
+.pill-em-analise { color: #a78bfa; border-color: #a78bfa; }
 .pill-reembolsado { color: var(--ok); border-color: var(--ok); }
 
 .resumo-ok { font-size: 14px; color: var(--ok); font-weight: 600; }

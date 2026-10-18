@@ -63,15 +63,16 @@ apps-script/merge-lote.gs    (opcional) junta os docs do lote num PDF único p/ 
 
 Aba **`Lotes`** — **uma linha por lote (prestador × mês)**:
 
-| prestador | mes_referencia | NF | Laudo | Comprovante | Relatorio | Presenca | data_limite | status | data_postagem | rastreio | valor | pedido_pdf | pdf_lote |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| prestador | mes_referencia | NF | Laudo | Comprovante | Relatorio | Presenca | data_limite | status | data_postagem | rastreio | valor | pedido_pdf | pdf_lote | protocolo |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 
-As duas últimas colunas são da **impressão**: o app escreve `pedido_pdf` ao pedir o PDF único;
-o `merge-lote.gs` devolve o link do PDF juntado em `pdf_lote`.
+`pedido_pdf` e `pdf_lote` são da **impressão**: o app escreve `pedido_pdf` ao pedir o PDF único;
+o `merge-lote.gs` devolve o link do PDF juntado em `pdf_lote`. `protocolo` é o número do
+pedido de reembolso no plano (registrado junto com o envio).
 
 Cada célula de tipo guarda **o link do arquivo** que preencheu aquele slot (vários links
 separados por ` | ` se vierem de arquivos diferentes). `status` ∈ `Aguardando`,
-`Completo`, `Enviado`, `Reembolsado`.
+`Completo`, `Enviado`, `Em análise` (enviado **com protocolo**), `Reembolsado`.
 
 Aba **`Inbox`** — arquivos apontados ao app e se já foram triados:
 
@@ -194,9 +195,13 @@ Se for usar domínio próprio via Cloudflare **na frente do Pages**:
    **especialidade(s)** (Fono/TO/ABA) daquele arquivo — **pode marcar mais de uma** quando um
    anexo cobre várias (ex.: uma lista de presença de Fono **e** ABA marca as duas). Só aparecem
    os tipos que o prestador exige.
-3. **Lotes** → veja `Aguardando/Completo/Enviado/Reembolsado`, filtre por
-   *Faltando docs / Prontos p/ enviar / Prazo desta semana*, e **Registrar envio**
-   (data de postagem, rastreio, valor) quando postar nos Correios.
+3. **Lotes** → veja `Aguardando/Completo/Enviado/Em análise/Reembolsado` e **Registrar envio**
+   (data de postagem, rastreio, **protocolo**, valor) quando postar nos Correios. Com o
+   protocolo preenchido o lote vira **Em análise** (dá para incluí-lo depois em *Editar envio*).
+   **Filtros:** busca (prestador, rastreio, protocolo, valor), atalhos *Faltando docs / Prontos
+   p/ enviar / Prazo desta semana / Aguardando reembolso* e, em **Mais filtros**, prestador,
+   status, período (por mês de referência, data de postagem ou prazo) e ordenação. Os filtros
+   ficam lembrados no dispositivo.
 
 ### Documentos de referência (à parte do lote)
 Documentos de suporte, **fora do lote e do PDF de impressão** — você abre/imprime (link ↗)
